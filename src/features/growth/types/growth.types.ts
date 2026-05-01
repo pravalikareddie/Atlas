@@ -37,6 +37,7 @@ export interface Book {
   author: string | null
   status: 'want' | 'reading' | 'done'
   year: number
+  target_month: string | null // yyyy-MM
   order_index: number
   created_at: string
 }

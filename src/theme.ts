@@ -182,11 +182,40 @@ export const theme = createTheme({
     // Life area colors — single source of truth
     areaColors: {
       work: 'var(--mantine-color-blue-5)',
-      finance: 'var(--mantine-color-purple-5)',
+      personal: 'var(--mantine-color-coral-5)',
+      money: 'var(--mantine-color-violet-5)',
       health: 'var(--mantine-color-green-5)',
-      growth: 'var(--mantine-color-teal-5)',
-      goals: 'var(--mantine-color-amber-5)',
+      learning: 'var(--mantine-color-teal-5)',
+      sleep: 'var(--mantine-color-indigo-5)',
+      projects: 'var(--mantine-color-orange-5)',
       living: 'var(--mantine-color-coral-5)',
+      growth: 'var(--mantine-color-teal-5)',
+    },
+
+    // Score card surfaces (navy dark theme)
+    // Health metric chart colors
+    metricColors: {
+      mood: amber[5],
+      energy: blue[5],
+      sleep: purple[5],
+      water: teal[5],
+    },
+
+    scoreCard: {
+      bg: 'var(--mantine-color-navy-9)',
+      bgGradient:
+        'linear-gradient(135deg, var(--mantine-color-navy-9), var(--mantine-color-navy-8))',
+      headerGradient:
+        'linear-gradient(180deg, var(--mantine-color-navy-8), var(--mantine-color-navy-9))',
+      border: 'var(--mantine-color-navy-7)',
+      borderSubtle: 'rgba(255,255,255,0.06)',
+      textPrimary: 'var(--mantine-color-white)',
+      textSecondary: 'rgba(255,255,255,0.65)',
+      textTertiary: 'rgba(255,255,255,0.4)',
+      textMuted: 'rgba(255,255,255,0.3)',
+      ringBg: 'rgba(255,255,255,0.06)',
+      metricBg: 'rgba(255,255,255,0.02)',
+      metricBorder: 'rgba(255,255,255,0.04)',
     },
 
     // Score thresholds

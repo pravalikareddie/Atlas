@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '../layout/AppLayout'
-import { TodayScreen } from '../features/tasks/components/TodayScreen'
+import { TodayScreen } from '../components/today/TodayScreen'
 import { TasksScreen } from '../features/tasks/components/TasksScreen'
 import { FinanceLayout } from '../features/finance/components/FinanceLayout'
 import { FinanceOverview } from '../features/finance/components/FinanceOverview'
@@ -37,8 +37,6 @@ import { RoutineEditView } from '../features/routines/RoutineEditView'
 import { LogTypeSelector } from '../features/finance/components/LogTypeSelector'
 import { ExpensesScreen } from '../features/finance/components/ExpensesScreen'
 import { FocusScreen } from '../features/focus/FocusScreen'
-
-// ─── App.tsx ───────────────────────────────────────────────────────────────────
 
 export function App() {
   return (

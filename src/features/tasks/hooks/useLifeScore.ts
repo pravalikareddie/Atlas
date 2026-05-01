@@ -1,25 +1,61 @@
 import { useMemo, useEffect, useRef } from 'react'
-import { format, subDays } from 'date-fns'
+import { format, isSameMonth } from 'date-fns'
 import { useTaskStore } from '../../tasks/store/taskStore'
 import { useBudgetSummary } from '../../finance/hooks/useBudgetSummary'
 import { useHealthStore } from '../../health/store/healthStore'
 import { usePlanStore } from '../../plan/store/planStore'
-import { useRoutineStore } from '../../routines/hooks/useRoutineStore'
+import { useGrowthStore } from '../../growth/store/growthStore'
+import { useFinanceStore } from '../../finance/store/financeStore'
 import {
   TASK_TYPE,
   TASK_STATUS,
+  PERSONAL_TYPES,
   DATE_FORMAT,
-  GOAL_STATUS,
   USER_ID,
 } from '../../tasks/constants/taskConstants'
 import { upsertLifeScore } from '../../finance/services/lifeScoreService'
+import {
+  TARGET,
+  AREAS_META,
+  getScoreColor,
+  getScoreLabel,
+} from '../../../components/today/lifeScore.constants'
+import { DailyLog } from '../../health/types/health.types'
+import { HEALTH_SCALE, MONTHLY_HISTORY_MONTHS } from '../../../components/today'
 
-const WORK_TASK_POINTS = 14
-const PERSONAL_TASK_POINTS = 20
-const ROUTINE_POINTS = 20
-const GOAL_PER_ACTIVE = 25
-const SCORE_GREAT = 70
-const SCORE_OKAY = 40
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface WorkData {
+  done: number
+  planned: number
+}
+export interface PersonalData {
+  done: number
+  planned: number
+}
+export interface MonthlyMoney {
+  month: string
+  spent: number
+  budget: number
+}
+export interface MoneyData {
+  budget: number
+  spent: number
+  saved: number
+  overspent: number
+  monthly: MonthlyMoney[]
+}
+export interface HealthData {
+  logs: DailyLog[]
+}
+export interface GrowthData {
+  itemsDone: number
+  itemsPlanned: number
+  booksDone: number
+  booksPlanned: number
+  projectsDone: number
+  projectsPlanned: number
+}
 
 export interface AreaScore {
   key: string
@@ -34,161 +70,278 @@ export interface LifeScoreResult {
   label: string
   color: string
   areas: AreaScore[]
+  work: WorkData
+  personal: PersonalData
+  money: MoneyData
+  health: HealthData
+  growth: GrowthData
 }
 
-const AREAS = [
-  {
-    key: 'work',
-    label: 'Work',
-    emoji: '💼',
-    color: 'var(--mantine-color-blue-5)',
-  },
-  {
-    key: 'finance',
-    label: 'Finance',
-    emoji: '💜',
-    color: 'var(--mantine-color-purple-5)',
-  },
-  {
-    key: 'health',
-    label: 'Health',
-    emoji: '💚',
-    color: 'var(--mantine-color-green-5)',
-  },
-  {
-    key: 'growth',
-    label: 'Growth',
-    emoji: '🧠',
-    color: 'var(--mantine-color-teal-5)',
-  },
-  {
-    key: 'goals',
-    label: 'Goals',
-    emoji: '🎯',
-    color: 'var(--mantine-color-amber-5)',
-  },
-  {
-    key: 'living',
-    label: 'Living',
-    emoji: '🌟',
-    color: 'var(--mantine-color-coral-5)',
-  },
-] as const
+// ─── Score helpers ────────────────────────────────────────────────────────────
 
-function getLabel(score: number): string {
-  if (score >= SCORE_GREAT) return 'Thriving'
-  if (score >= SCORE_OKAY) return 'Getting there'
-  return 'Needs attention'
+/** Completion rate: 0–100, or 0 if nothing planned */
+function completionScore(done: number, planned: number): number {
+  return planned > 0 ? (done / planned) * 100 : 0
 }
 
-function getColor(score: number): string {
-  if (score >= SCORE_GREAT) return 'teal'
-  if (score >= SCORE_OKAY) return 'amber'
-  return 'red'
+/**
+ * Money score: 100 = exactly on budget, scales linearly down as overspend
+ * grows, floors at 0. Spending nothing also scores 100.
+ */
+function moneyScore(spent: number, budget: number): number {
+  if (budget <= 0) return 0
+  return Math.max(0, Math.min(100, (1 - spent / budget) * 100 + 100) / 2)
 }
+
+/**
+ * Health score: average of four normalised 0–1 components × 100.
+ * Component scales are driven by HEALTH_SCALE so a change in one scale
+ * automatically propagates to the score formula.
+ */
+function healthScore(logs: DailyLog[]): number {
+  const n = logs.length
+  if (n === 0) return 0
+
+  const avg = (field: keyof DailyLog) =>
+    logs.reduce((sum, l) => sum + ((l[field] as number | null) ?? 0), 0) / n
+
+  const normMood = avg('mood') / HEALTH_SCALE.MOOD
+  const normEnergy = avg('energy_level') / HEALTH_SCALE.ENERGY
+  const normStress = 1 - avg('stress_level') / HEALTH_SCALE.STRESS // inverted
+  const normWater = Math.min(1, avg('water_cups') / TARGET.WATER_CUPS)
+
+  const COMPONENT_COUNT = 4
+  return (
+    ((normMood + normEnergy + normStress + normWater) / COMPONENT_COUNT) * 100
+  )
+}
+
+/** Average of available completion rates (ignores areas with no data) */
+function growthScore(rates: number[]): number {
+  const valid = rates.filter((r) => r >= 0)
+  return valid.length > 0
+    ? (valid.reduce((a, b) => a + b, 0) / valid.length) * 100
+    : 0
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useLifeScore(): LifeScoreResult {
   const tasks = useTaskStore((s) => s.tasks)
   const { totalSpent, totalBudget } = useBudgetSummary()
   const { dailyLogs } = useHealthStore()
-  const { goals } = usePlanStore()
-  const { sessions } = useRoutineStore()
-  const weekAgo = subDays(new Date(), 7)
-  const todayStr = format(new Date(), DATE_FORMAT.API)
+  const { projects } = usePlanStore()
+  const { items: growthItems, books } = useGrowthStore()
+  const { expenses, budgets } = useFinanceStore()
+
+  // Stable date values — computed once per mount, not on every render
+  const now = useMemo(() => new Date(), [])
+  const todayStr = useMemo(() => format(now, DATE_FORMAT.API), [now])
+  const currentMonthPrefix = useMemo(
+    () => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+    [now],
+  )
 
   const result = useMemo<LifeScoreResult>(() => {
-    const workDone = tasks.filter(
-      (t) =>
-        t.type === TASK_TYPE.SPRINT &&
-        t.status === TASK_STATUS.DONE &&
-        t.completed_at &&
-        new Date(t.completed_at) > weekAgo,
-    ).length
-    const work = Math.min(100, workDone * WORK_TASK_POINTS)
+    // ─── WORK ─────────────────────────────────────────────────────
+    const allSubtasks = tasks.filter((t) => t.parent_task_id)
+    const hasSubtasks = (id: string) =>
+      allSubtasks.some((s) => s.parent_task_id === id)
 
-    const financeRatio = totalBudget > 0 ? totalSpent / totalBudget : 0
-    const finance =
-      financeRatio <= 1
-        ? Math.round((1 - financeRatio * 0.5) * 100)
-        : Math.max(0, Math.round((2 - financeRatio) * 50))
-
-    const logsThisWeek = dailyLogs.filter(
-      (l) => new Date(l.date) > weekAgo,
-    ).length
-    const recent = dailyLogs.slice(0, 7)
-    const avgSleep =
-      recent.reduce((s, l) => s + (l.sleep_hours ?? 0), 0) /
-      Math.max(1, recent.length)
-    const health = Math.min(
-      100,
-      Math.round((logsThisWeek / 7) * 60) +
-        (avgSleep >= 7 ? 40 : Math.round((avgSleep / 7) * 40)),
+    const sprintTasks = tasks.filter(
+      (t) => t.type === TASK_TYPE.SPRINT && !t.parent_task_id,
     )
-
-    const routinesDone = sessions.filter(
-      (s) => s.completed_at && new Date(s.completed_at) > weekAgo,
-    ).length
-    const growth = Math.min(100, routinesDone * ROUTINE_POINTS)
-
-    const activeGoalCount = goals.filter(
-      (g) => g.status === GOAL_STATUS.ACTIVE,
-    ).length
-    const goalScore = Math.min(100, activeGoalCount * GOAL_PER_ACTIVE)
-
-    const livingDone = tasks.filter(
-      (t) =>
-        (t.type === TASK_TYPE.PERSONAL || t.type === TASK_TYPE.LIVING) &&
-        t.status === TASK_STATUS.DONE &&
-        t.completed_at &&
-        new Date(t.completed_at) > weekAgo,
-    ).length
-    const living = Math.min(100, livingDone * PERSONAL_TASK_POINTS)
-
-    const scores: Record<string, number> = {
-      work,
-      finance,
-      health,
-      growth,
-      goals: goalScore,
-      living,
+    let workPlanned = 0,
+      workDone = 0
+    for (const t of sprintTasks) {
+      if (hasSubtasks(t.id)) {
+        const subs = allSubtasks.filter((s) => s.parent_task_id === t.id)
+        workPlanned += subs.length
+        workDone += subs.filter((s) => s.status === TASK_STATUS.DONE).length
+      } else {
+        workPlanned++
+        if (t.status === TASK_STATUS.DONE) workDone++
+      }
     }
-    const overall = Math.round(
-      Object.values(scores).reduce((a, b) => a + b, 0) /
-        Object.values(scores).length,
+
+    // ─── PERSONAL ─────────────────────────────────────────────────
+    const personalTasks = tasks.filter(
+      (t) => PERSONAL_TYPES.includes(t.type) && !t.parent_task_id,
     )
-    const areas: AreaScore[] = AREAS.map((a) => ({
+    let personalPlanned = 0,
+      personalDone = 0
+    for (const t of personalTasks) {
+      if (hasSubtasks(t.id)) {
+        const subs = allSubtasks.filter((s) => s.parent_task_id === t.id)
+        personalPlanned += subs.length
+        personalDone += subs.filter((s) => s.status === TASK_STATUS.DONE).length
+      } else {
+        personalPlanned++
+        if (t.status === TASK_STATUS.DONE) personalDone++
+      }
+    }
+
+    // ─── MONEY ────────────────────────────────────────────────────
+    const saved = Math.max(0, totalBudget - totalSpent)
+    const overspent = Math.max(0, totalSpent - totalBudget)
+
+    const months: MonthlyMoney[] = Array.from(
+      { length: MONTHLY_HISTORY_MONTHS },
+      (_, i) => {
+        const offset = MONTHLY_HISTORY_MONTHS - 1 - i
+        const d = new Date(now.getFullYear(), now.getMonth() - offset, 1)
+        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        const mSpent = (expenses ?? [])
+          .filter((e) => e.month === m)
+          .reduce((s, e) => s + e.amount, 0)
+        const mBudget = (budgets ?? [])
+          .filter((b) => b.month === m)
+          .reduce((s, b) => s + b.amount, 0)
+        return { month: m, spent: mSpent, budget: mBudget }
+      },
+    )
+
+    // ─── HEALTH ───────────────────────────────────────────────────
+    // Filter to current month — consistent with every other area
+    const logsThisMonth = dailyLogs.filter((l) =>
+      isSameMonth(new Date(l.date), now),
+    )
+
+    // ─── GROWTH ───────────────────────────────────────────────────
+    const itemsThisMonth = growthItems.filter(
+      (i) =>
+        i.status === 'current' ||
+        (i.done_date && isSameMonth(new Date(i.done_date), now)),
+    )
+    const itemsDone = itemsThisMonth.filter((i) => i.status === 'done').length
+    const itemsPlanned = itemsThisMonth.length
+
+    const booksTarget = books.filter(
+      (b) => b.target_month === currentMonthPrefix,
+    )
+    const booksDone = booksTarget.filter((b) => b.status === 'done').length
+    const booksPlanned = booksTarget.length
+
+    const projThisMonth = projects.filter(
+      (p) =>
+        p.status === 'active' ||
+        (p.status === 'done' &&
+          p.deadline &&
+          isSameMonth(new Date(p.deadline), now)),
+    )
+    const projectsDone = projThisMonth.filter((p) => p.status === 'done').length
+    const projectsPlanned = projThisMonth.length
+
+    // ─── SCORES ───────────────────────────────────────────────────
+    const scores = {
+      work: completionScore(workDone, workPlanned),
+      personal: completionScore(personalDone, personalPlanned),
+      money: moneyScore(totalSpent, totalBudget),
+      health: healthScore(logsThisMonth),
+      growth: growthScore([
+        itemsPlanned > 0 ? itemsDone / itemsPlanned : -1,
+        booksPlanned > 0 ? booksDone / booksPlanned : -1,
+        projectsPlanned > 0 ? projectsDone / projectsPlanned : -1,
+      ]),
+    }
+
+    // Only areas with actual data contribute to the overall —
+    // unconfigured areas don't penalise the score.
+    const activeScores = [
+      workPlanned > 0 && scores.work,
+      personalPlanned > 0 && scores.personal,
+      totalBudget > 0 && scores.money,
+      logsThisMonth.length > 0 && scores.health,
+      projectsPlanned > 0 || booksPlanned > 0 || itemsPlanned > 0
+        ? scores.growth
+        : false,
+    ].filter((s): s is number => s !== false)
+
+    const overall =
+      activeScores.length > 0
+        ? Math.round(
+            activeScores.reduce((a, b) => a + b, 0) / activeScores.length,
+          )
+        : 0
+
+    const areas: AreaScore[] = AREAS_META.map((a) => ({
       ...a,
-      score: scores[a.key] ?? 0,
+      score: Math.round(scores[a.key as keyof typeof scores] ?? 0),
     }))
 
     return {
       overall,
-      label: getLabel(overall),
-      color: getColor(overall),
+      label: getScoreLabel(overall),
+      color: getScoreColor(overall),
       areas,
+      work: { done: workDone, planned: workPlanned },
+      personal: { done: personalDone, planned: personalPlanned },
+      money: {
+        budget: totalBudget,
+        spent: totalSpent,
+        saved,
+        overspent,
+        monthly: months,
+      },
+      health: { logs: logsThisMonth },
+      growth: {
+        itemsDone,
+        itemsPlanned,
+        booksDone,
+        booksPlanned,
+        projectsDone,
+        projectsPlanned,
+      },
     }
-  }, [tasks, totalSpent, totalBudget, dailyLogs, goals, sessions])
+  }, [
+    tasks,
+    totalSpent,
+    totalBudget,
+    dailyLogs,
+    projects,
+    growthItems,
+    books,
+    expenses,
+    budgets,
+    now,
+    currentMonthPrefix,
+  ])
 
+  // ─── Persist ──────────────────────────────────────────────────────────────
   const lastSavedRef = useRef<string>('')
-  const scoreKey = `${todayStr}:${result.overall}`
+
   useEffect(() => {
+    const healthArea = result.areas.find((a) => a.key === 'health')
+    const growthArea = result.areas.find((a) => a.key === 'growth')
+
+    // Composite key covers every field written to the DB — prevents redundant upserts
+    const scoreKey = [
+      todayStr,
+      result.overall,
+      healthArea?.score,
+      growthArea?.score,
+      result.work.done,
+      result.personal.done,
+      result.money.spent,
+    ].join(':')
+
     if (lastSavedRef.current === scoreKey) return
     lastSavedRef.current = scoreKey
-    const { areas } = result
-    const getScore = (key: string) =>
-      areas.find((a) => a.key === key)?.score ?? 0
+
     upsertLifeScore({
       user_id: USER_ID,
       date: todayStr,
       overall: result.overall,
-      work: getScore('work'),
-      finance: getScore('finance'),
-      health: getScore('health'),
-      growth: getScore('growth'),
-      goals: getScore('goals'),
-      living: getScore('living'),
-    }).catch(() => {})
-  }, [scoreKey])
+      work: result.work.done,
+      finance: result.money.spent,
+      health: healthArea?.score ?? 0,
+      growth: growthArea?.score ?? 0,
+      goals: 0,
+      living: result.personal.done,
+    }).catch((err) => {
+      console.error('[useLifeScore] Failed to persist life score:', err)
+    })
+  }, [result, todayStr])
 
   return result
 }

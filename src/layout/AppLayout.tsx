@@ -10,12 +10,13 @@ export function AppLayout() {
       padding="xl"
       styles={{
         main: {
-          background: 'var(--mantine-color-gray-0)',
+          background: '#f4f6f9',
           minHeight: '100vh',
         },
         navbar: {
-          background: 'var(--mantine-color-body)',
-          borderRight: '1px solid var(--mantine-color-default-border)',
+          background: '#0e1624',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          padding: 0,
         },
       }}
     >

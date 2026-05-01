@@ -8,10 +8,10 @@ import {
   NumberInput,
   Modal,
   Button,
+  Box,
 } from '@mantine/core'
 import { useHealthStore } from '../features/health/store/healthStore'
 import { upsertDailyLog } from '../features/health/services/dailyLogService'
-
 import { DailyLog } from '../features/health/types/health.types'
 
 const MOODS = ['😞', '😕', '😐', '🙂', '😊']
@@ -32,10 +32,10 @@ export function BottomWidgets() {
   )
 
   async function save(updates: Record<string, unknown>) {
-    const log = { user_id: 'demo-user', date: today, ...updates }
+    const log = { user_id: '00000000-0000-0000-0000-000000000001', date: today, ...updates }
     upsertLog({
       id: todayLog?.id ?? crypto.randomUUID(),
-      user_id: 'demo-user',
+      user_id: '00000000-0000-0000-0000-000000000001',
       date: today,
       mood: todayLog?.mood ?? null,
       mood_note: todayLog?.mood_note ?? null,
@@ -57,63 +57,81 @@ export function BottomWidgets() {
     await save({ water_cups: cups })
   }
 
+  const chipStyle = {
+    cursor: 'pointer',
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    padding: '4px 8px',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.65)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    transition: 'background 0.15s ease',
+  }
+
   return (
     <>
-      <Group
-        gap="xs"
+      <Box
         pt="sm"
-        wrap="wrap"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+        mt="auto"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <Badge
-          variant="light"
-          color="gray"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setModal('mood')}
-        >
-          {todayLog?.mood ? MOODS[todayLog.mood - 1] : '😐'}
-        </Badge>
-        <Badge
-          variant="light"
-          color="gray"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setModal('energy')}
-        >
-          ⚡{todayLog?.energy_level ? ENERGY[todayLog.energy_level - 1] : '--'}
-        </Badge>
-        <Badge
-          variant="light"
-          color="gray"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setModal('stress')}
-        >
-          🌡{todayLog?.stress_level ? STRESS[todayLog.stress_level - 1] : '--'}
-        </Badge>
-        <Badge
-          variant="light"
-          color={todayLog?.water_cups === 8 ? 'green' : 'gray'}
-          style={{ cursor: 'pointer' }}
-          onClick={addWater}
-        >
-          💧{todayLog?.water_cups ?? 0}/8
-        </Badge>
-        <Badge
-          variant="light"
-          color="gray"
-          style={{ cursor: 'pointer' }}
-          onClick={() => {
-            setSleepInput(todayLog?.sleep_hours ?? '')
-            setModal('sleep')
+        <Text
+          size="xs"
+          fw={600}
+          tt="uppercase"
+          mb="xs"
+          style={{
+            color: 'rgba(255,255,255,0.25)',
+            fontSize: 10,
+            letterSpacing: 1,
           }}
         >
-          🌙{todayLog?.sleep_hours ?? '--'}h
-        </Badge>
-      </Group>
+          Today
+        </Text>
+        <Group gap={4} wrap="wrap">
+          <Box style={chipStyle} onClick={() => setModal('mood')}>
+            {todayLog?.mood ? MOODS[todayLog.mood - 1] : '😐'}
+          </Box>
+          <Box style={chipStyle} onClick={() => setModal('energy')}>
+            ⚡
+            {todayLog?.energy_level ? ENERGY[todayLog.energy_level - 1] : '--'}
+          </Box>
+          <Box style={chipStyle} onClick={() => setModal('stress')}>
+            🌡
+            {todayLog?.stress_level ? STRESS[todayLog.stress_level - 1] : '--'}
+          </Box>
+          <Box
+            style={{
+              ...chipStyle,
+              color:
+                todayLog?.water_cups === 8
+                  ? '#38bec9'
+                  : 'rgba(255,255,255,0.65)',
+            }}
+            onClick={addWater}
+          >
+            💧{todayLog?.water_cups ?? 0}/8
+          </Box>
+          <Box
+            style={chipStyle}
+            onClick={() => {
+              setSleepInput(todayLog?.sleep_hours ?? '')
+              setModal('sleep')
+            }}
+          >
+            🌙{todayLog?.sleep_hours ?? '--'}h
+          </Box>
+        </Group>
+      </Box>
 
       <Modal
         opened={modal === 'mood'}
         onClose={() => setModal(null)}
         title="How are you feeling?"
+        radius="xl"
       >
         <Group gap="md" mb="md">
           {MOODS.map((m, i) => (
@@ -121,7 +139,8 @@ export function BottomWidgets() {
               key={i}
               style={{
                 cursor: 'pointer',
-                opacity: todayLog?.mood === i + 1 ? 1 : 0.5,
+                fontSize: 28,
+                opacity: todayLog?.mood === i + 1 ? 1 : 0.4,
               }}
               onClick={() => save({ mood: i + 1 })}
             >
@@ -135,11 +154,15 @@ export function BottomWidgets() {
               value={moodNote}
               onChange={(e) => setMoodNote(e.target.value)}
               placeholder="what's going on? (optional)"
+              radius="lg"
             />
             <Button
               onClick={() =>
                 save({ mood: todayLog?.mood, mood_note: moodNote || null })
               }
+              variant="gradient"
+              gradient={{ from: 'teal', to: 'blue' }}
+              radius="xl"
             >
               save note
             </Button>
@@ -151,12 +174,15 @@ export function BottomWidgets() {
         opened={modal === 'energy'}
         onClose={() => setModal(null)}
         title="Energy level?"
+        radius="xl"
       >
         <Stack gap="xs">
           {ENERGY.map((e, i) => (
             <Button
               key={i}
-              variant={todayLog?.energy_level === i + 1 ? 'filled' : 'subtle'}
+              variant={todayLog?.energy_level === i + 1 ? 'gradient' : 'subtle'}
+              gradient={{ from: 'teal', to: 'blue' }}
+              radius="xl"
               onClick={() => save({ energy_level: i + 1 })}
             >
               {e}
@@ -169,12 +195,15 @@ export function BottomWidgets() {
         opened={modal === 'stress'}
         onClose={() => setModal(null)}
         title="Stress level?"
+        radius="xl"
       >
         <Stack gap="xs">
           {STRESS.map((s, i) => (
             <Button
               key={i}
-              variant={todayLog?.stress_level === i + 1 ? 'filled' : 'subtle'}
+              variant={todayLog?.stress_level === i + 1 ? 'gradient' : 'subtle'}
+              gradient={{ from: 'teal', to: 'blue' }}
+              radius="xl"
               onClick={() => save({ stress_level: i + 1 })}
             >
               {s}
@@ -187,6 +216,7 @@ export function BottomWidgets() {
         opened={modal === 'sleep'}
         onClose={() => setModal(null)}
         title="Hours slept?"
+        radius="xl"
       >
         <Stack gap="sm">
           <NumberInput
@@ -196,6 +226,7 @@ export function BottomWidgets() {
             min={0}
             max={14}
             autoFocus
+            radius="lg"
           />
           <Button
             onClick={() =>
@@ -204,6 +235,9 @@ export function BottomWidgets() {
               })
             }
             disabled={sleepInput === ''}
+            variant="gradient"
+            gradient={{ from: 'teal', to: 'blue' }}
+            radius="xl"
           >
             save
           </Button>
