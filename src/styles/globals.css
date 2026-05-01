@@ -7,13 +7,18 @@ body,
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  font-size: 16px;
 }
+
 * {
   box-sizing: border-box;
 }
+
 body {
-  background: #f5f6f8;
+  background: var(--mantine-color-default-hover);
 }
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
   width: 4px;
@@ -22,9 +27,39 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--mantine-color-default-border);
   border-radius: 4px;
 }
+
+/* ─── Custom Badge variants (Mantine v7 CSS-based approach) ─────────────────── */
+/* Usage: <Badge variant="urgent">, <Badge variant="done">, etc. */
+
+[data-variant='urgent'] {
+  background: var(--mantine-color-red-light);
+  color: var(--mantine-color-red-filled);
+  border: 1px solid var(--mantine-color-red-3);
+  font-weight: 700;
+}
+
+[data-variant='done'] {
+  background: var(--mantine-color-green-light);
+  color: var(--mantine-color-green-filled);
+  border: 1px solid var(--mantine-color-green-3);
+}
+
+[data-variant='neutral'] {
+  background: var(--mantine-color-gray-light);
+  color: var(--mantine-color-gray-6);
+  border: 1px solid var(--mantine-color-gray-3);
+}
+
+[data-variant='warning'] {
+  background: var(--mantine-color-yellow-light);
+  color: var(--mantine-color-yellow-filled);
+  border: 1px solid var(--mantine-color-yellow-3);
+}
+
+/* ─── Animations ────────────────────────────────────────────────────────────── */
 
 @keyframes fadeUp {
   from {
@@ -36,45 +71,16 @@ body {
     transform: translateY(0);
   }
 }
+
 @keyframes checkPop {
-  0% {
-    transform: scale(0);
-  }
-  60% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
 }
-@keyframes countIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
+
 @keyframes shimmer {
-  0% {
-    background-position: -300px 0;
-  }
-  100% {
-    background-position: 300px 0;
-  }
+  0% { background-position: -300px 0; }
+  100% { background-position: 300px 0; }
 }
 
 .page-enter {

@@ -378,4 +378,70 @@ export const STRINGS = {
   NEW_ROADMAP: 'New Roadmap',
   SESSIONS_COMPLETED: 'sessions completed',
   RUNS: 'runs',
+  // ─── ADD THESE TO src/features/tasks/constants/strings.ts ────────────────────
+  // Paste inside the STRINGS object
+
+  // Reset Mode
+  RESET_MODE: 'Reset Mode',
+  RESET_READY: "I'm ready",
+  RESET_SEE_REALITY: 'See reality check',
+  RESET_PICK_ONE: 'Pick one thing',
+  RESET_RECOMMIT: 'Recommit',
+  RESET_BACK_TO_TODAY: 'Back to Today',
+  RESET_DONE_TITLE: "You've got this.",
+  RESET_DONE_SUBTITLE:
+    'Everything else is secondary. Come back to this when things feel off.',
+  RESET_WEEKS_FOCUS: "This week's focus",
+  RESET_CTA_SUBTITLE:
+    'Things feeling off? Take 5 minutes to breathe, reflect, and recommit.',
+  RESET_DUMP_TITLE: "What's weighing on you right now?",
+  RESET_DUMP_SUBTITLE: "Don't filter. Just type everything.",
+  RESET_DUMP_PLACEHOLDER:
+    "Work is overwhelming, I haven't called mom, finances feel out of control...",
+  RESET_REALITY_TITLE: "Here's where things actually are.",
+  RESET_ONE_TITLE:
+    'If you could only fix one thing this week, what would it be?',
+  RESET_ONE_PLACEHOLDER: 'Or write your own...',
+  RESET_OVERDUE: 'Overdue tasks',
+  RESET_BUDGET_USED: 'Budget used',
+  RESET_OF_BUDGET: 'of monthly budget',
+  RESET_LAST_SLEEP: 'Last sleep logged',
+  RESET_ACTIVE_GOALS: 'Active goals',
+  RESET_IN_PROGRESS: 'in progress',
+
+  // Breathe
+  BREATHE_IN: 'Breathe in...',
+  BREATHE_HOLD: 'Hold...',
+  BREATHE_OUT: 'Breathe out...',
+  BREATHE_MORE_CYCLES: 'more cycles',
+  BREATHE_READY: 'Ready when you are',
+
+  // Audit Tab
+  AUDIT_LIFE_SCORE: 'Weekly Life Score',
+  AUDIT_SCORE_SUBTITLE: 'Based on tasks, finance, health, goals & routines',
+  AUDIT_THIS_WEEK: 'This Week',
+  AUDIT_FINANCE_PULSE: 'Financial Pulse',
+  AUDIT_ACTIVE_GOALS: 'Active Goals',
+  AUDIT_YESTERDAY_WINS: "Yesterday's Wins",
+  AUDIT_INSIGHT: 'Atlas Insight',
+  AUDIT_WEEKS_FOCUS: "This week's focus",
+  MORE_COMPLETED: 'more completed',
+
+  // Insight messages (functions)
+  INSIGHT_ZERO:
+    "You haven't completed any tasks this week. Start with one small thing — momentum builds fast.",
+  INSIGHT_LOW: (n: number) =>
+    `You've completed ${n} tasks this week. Picking up — keep going.`,
+  INSIGHT_GOOD: (n: number) =>
+    `Strong week — ${n} tasks done. You're in a good rhythm.`,
+
+  // Finance
+  ON_TRACK: 'On track',
+  LEFT: 'left',
+  SAVED: 'Saved',
+  BUDGET: 'Budget',
+
+  // Misc
+  NOT_LOGGED: 'Not logged',
+  SKIP: 'Skip',
 } as const

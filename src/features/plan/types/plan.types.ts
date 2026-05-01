@@ -114,6 +114,8 @@ export interface UserSettings {
   user_id: string
   daily_mantra: string | null
   updated_at: string
+  weekly_focus: string
+  weekly_focus_set_at: string
 }
 
 export const GOAL_AREAS: { key: GoalArea; label: string }[] = [
