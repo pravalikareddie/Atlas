@@ -8,14 +8,11 @@ export function useGrowthData() {
     if (store.loading) return
     store.setLoading(true)
     Promise.all([
-      svc.fetchAreas().catch(() => []),
-      svc.fetchAllSections().catch(() => []),
-      svc.fetchAllItems().catch(() => []),
       svc.fetchBooks(new Date().getFullYear()).catch(() => []),
-    ]).then(([areas, sections, items, books]) => {
-      store.setAreas(areas)
-      store.setSections(sections)
-      store.setItems(items)
+    ]).then(([books]) => {
+      store.setAreas([])
+      store.setSections([])
+      store.setItems([])
       store.setBooks(books)
       store.setLoading(false)
     })

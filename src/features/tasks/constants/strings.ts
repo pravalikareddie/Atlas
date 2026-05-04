@@ -91,10 +91,10 @@ export const STRINGS = {
   // Actions
   ADD_TASK: 'Add Task',
   ADD_EVENT: 'Add Event',
-  ADD_WORK_TASK: '+ Add Work Task',
-  ADD_PERSONAL_TASK: '+ Add Personal Task',
-  ADD_SUBTASK: '+ Add Subtask',
-  ADD_FOR_DAY: '+ Add Task for This Day',
+  ADD_WORK_TASK: 'Add Work Task',
+  ADD_PERSONAL_TASK: 'Add Personal Task',
+  ADD_SUBTASK: 'Add Subtask',
+  ADD_FOR_DAY: 'Add Task for This Day',
   MARK_DONE: 'Mark Done',
   MARKED_DONE: 'Marked done',
   MOVE_TO_TODAY: 'Move to Today',
@@ -222,8 +222,6 @@ export const STRINGS = {
   COMPLETED: 'completed',
   NEW_GOAL: 'New Goal',
   EDIT_GOAL: 'Edit Goal',
-  DAILY_MANTRA: 'Daily Mantra',
-  MANTRA_PLACEHOLDER: 'What do you want to remind yourself every day?',
   MANTRA_EMPTY: 'Tap to set your daily mantra...',
   GOALS_EMPTY: 'What do you want to achieve this year?',
   GOALS_EMPTY_SUB:
@@ -259,8 +257,8 @@ export const STRINGS = {
   LEARNING_TODAY: 'Learning Today',
   GROWTH_CALENDAR: '/growth/calendar',
   NO_LINKED_ROADMAPS: 'No roadmaps linked yet',
-  ADD_PROJECT: '+ Project',
-  ADD_ROADMAP: '+ Roadmap',
+  ADD_PROJECT: 'Project',
+  ADD_ROADMAP: 'Roadmap',
   LINK_EXISTING: 'Link existing:',
   LINK_EXISTING_PROJECT: 'Link an existing project:',
   LINK_EXISTING_ROADMAP: 'Link an existing roadmap:',
@@ -281,7 +279,25 @@ export const STRINGS = {
   SET_ASIDE: 'Set aside',
   GOAL_REACHED: 'Goal reached ✓',
   GOAL: 'Goal',
-
+  // In your STRINGS constant
+  MEETINGS: 'Meetings',
+  NEW_MEETING: 'New',
+  AD_HOC: 'Ad hoc',
+  NO_MEETINGS: 'No meetings yet',
+  NO_MEETINGS_SUB: 'Add your 1:1s, standups, and ad hoc meetings.',
+  AGENDA: 'Agenda',
+  ACTION_ITEMS: 'Action Items',
+  AI_GENERATE: 'AI Generate',
+  SAVE_AGENDA: 'Save agenda',
+  SAVE_NOTES: 'Save notes',
+  ADD_ACTION_ITEM: 'Add action item...',
+  DETAILS: 'Details',
+  NEXT_DATE: 'Next date',
+  DELETE_MEETING_CONFIRM: 'Delete',
+  OPEN_ITEMS: 'open',
+  DONE_COUNT: 'Done',
+  NEW_MEETING_PLACEHOLDER: 'e.g. 1:1 with Manager',
+  TITLE_REQUIRED: 'Title is required',
   NEEDS_ATTENTION: 'Needs attention',
   OVER: 'Over',
   RECENT_EXPENSES: 'Recent expenses',
@@ -308,7 +324,7 @@ export const STRINGS = {
   NAV_FOCUS: 'Focus',
   NAV_INBOX: 'Inbox',
   NAV_ROUTINES: 'Routines',
-  NAV_PLAN: 'Plan',
+  NAV_PLAN: 'Design',
   NAV_GOALS: 'Goals',
   NAV_PROJECTS: 'Projects',
   NAV_ROADMAPS: 'Roadmaps',
@@ -348,7 +364,7 @@ export const STRINGS = {
   LEARNING_AREAS: 'Learning Areas',
   NEW_AREA: 'New Area',
   EDIT_AREA: 'Edit Area',
-  ADD_AREA: '+ Add Area',
+  ADD_AREA: 'Add Area',
   ADD_LEARNING_ITEM: 'Add Item',
   NO_LEARNING_ITEMS: 'No learning items for this day.',
   LEARNING_ITEM_PLACEHOLDER: 'What will you learn?',
@@ -444,4 +460,64 @@ export const STRINGS = {
   // Misc
   NOT_LOGGED: 'Not logged',
   SKIP: 'Skip',
+
+  // Sprint
+  MANAGE_SPRINTS: 'Manage Sprints',
+  SPRINT_NAME: 'Sprint name',
+  SPRINT_NAME_PH: 'Sprint 14',
+  START: 'Start',
+  END: 'End',
+  ADD_A_TASK: 'Add a task...',
+  NO_SPRINT: 'No sprint',
+  NO_PRIORITY: 'No priority',
+  FOCUS_MODE: 'Focus mode',
+  RESET_MODE_LABEL: 'Reset mode',
+  CHAT_ABOUT: 'Chat about this',
+
+  // Chat
+  CHAT_EMPTY: 'Ask Atlas anything about your day',
+  CHAT_THINKING: 'Thinking…',
+  CHAT_PH: 'Message Atlas…',
+
+  // Brain dump
+  BRAINDUMP_PH: "What's on your mind? Press Enter to capture...",
+  AI_SUGGEST: 'AI suggest',
+
+  // Check-in
+  CHECKIN: 'Check-in',
+  HOW_FEELING: 'How are you feeling?',
+  ENERGY_LEVEL: 'Energy level?',
+  STRESS_LEVEL: 'Stress level?',
+  HOURS_SLEPT: 'Hours slept?',
+  WATER_CUPS: 'Water cups',
+  EXERCISE: 'Exercise',
+  EXERCISE_PH: 'What did you do? (e.g. 30 min run, upper body)',
+
+  // Projects
+  NO_PROJECTS: 'No projects yet. Start something.',
+  NO_TASKS_YET: 'No tasks yet',
+  ADD_SUBTASK_PH: 'Add subtask...',
+
+  // Finance
+  NO_OVER_BUDGET: 'No categories over budget this month',
+  NO_ACTIVE_SUBS: 'No active subscriptions',
+  ADD_NOTE_PH: 'Add a note...',
+  ADD_FINANCE_TASK_PH: 'Add finance task...',
+
+  // Meetings
+  MEETINGS_EMPTY_SUB: 'Add your 1:1s, standups, and ad hoc meetings.',
+  ADD_ACTION_ITEM_PH: 'Add action item...',
+
+  // Growth tab empty states
+  EMPTY_GOALS_MONTH: 'No goals, projects, or milestones this month',
+  EMPTY_LEARNING_MONTH: 'No learning areas or books',
+  EMPTY_LIVING_MONTH: 'No activities, places, or experiences this month',
+
+  // Audit
+  AUDIT_SPRINT_TIP: 'Sprint wrapping up — open Focus mode and knock out what you can 💪',
+  AUDIT_OVERDUE_TIP: 'Do them, schedule them, or let them go.',
+
+  // View
+  VIEW_TASKS: 'View Tasks →',
+  VIEW_ALL_TASKS: 'View all tasks →',
 } as const

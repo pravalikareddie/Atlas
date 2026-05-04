@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Stack, Group, Text, Title, Box } from '@mantine/core'
+import { Stack, Group, Text, Box } from '@mantine/core'
+import { COLORS, TRANSITION_FAST } from '../../shared/constants/styles'
 
 // tabs config — easy to update
 interface Tab {
@@ -22,7 +23,7 @@ export function FeatureLayout({
   headerRight,
 }: Props) {
   return (
-    <Stack maw={840} gap="lg">
+    <Stack gap="lg" p="md">
       {/* Header */}
       <Box
         p="xl"
@@ -54,12 +55,12 @@ export function FeatureLayout({
                   style={{
                     borderRadius: 'var(--mantine-radius-xl)',
                     background: isActive
-                      ? 'rgba(255,255,255,0.2)'
+                      ? COLORS.WHITE_20
                       : 'transparent',
                     border: isActive
-                      ? '1px solid rgba(255,255,255,0.3)'
+                      ? `1px solid ${COLORS.WHITE_30}`
                       : '1px solid transparent',
-                    transition: 'all 0.15s ease',
+                    transition: TRANSITION_FAST,
                     cursor: 'pointer',
                   }}
                 >
@@ -78,7 +79,9 @@ export function FeatureLayout({
         </Group>
       </Box>
 
-      <Outlet />
+      <Box p="md">
+        <Outlet />
+      </Box>
     </Stack>
   )
 }

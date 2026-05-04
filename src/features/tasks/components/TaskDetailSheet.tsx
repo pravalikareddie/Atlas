@@ -10,7 +10,6 @@ import {
   Textarea,
   Select,
   Switch,
-  Divider,
   UnstyledButton,
   ActionIcon,
   Box,
@@ -32,17 +31,16 @@ import {
   TASK_STATUS,
   PRIORITY_LABEL,
   CADENCE_LABEL,
-  TASK_TYPE,
   DATE_FORMAT,
   TYPE_COLOR,
 } from '../constants/taskConstants'
 import { useTaskActions } from '../hooks/useTaskActions'
 import { useTaskStore } from '../store/taskStore'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
 import {
   X,
-  Trash,
   Check,
-  CalendarPlus,
   CheckCircleIcon,
   Plus,
   Calendar,
@@ -62,18 +60,17 @@ interface DetailProps {
   onClose: () => void
 }
 
-export function TaskDetailSheet({ task, onClose }: DetailProps) {
+export function TaskDetailSheet({ task: taskProp, onClose }: DetailProps) {
   const { update, remove, markDone, create } = useTaskActions()
   const tasks = useTaskStore((s) => s.tasks)
+  const sprints = useTaskStore((s) => s.sprints)
+  const task = tasks.find((t) => t.id === taskProp.id) ?? taskProp
   const subtasks = tasks.filter((t) => t.parent_task_id === task.id)
 
   const [title, setTitle] = useState(task.title)
   const [type, setType] = useState<TaskType>(task.type)
   const [dueDate, setDueDate] = useState(task.due_date ?? '')
-  const [eventTime, setEventTime] = useState(task.event_time ?? '')
-  const [eventDuration, setEventDuration] = useState(
-    task.event_duration?.toString() ?? '',
-  )
+
   const [cadence, setCadence] = useState<CadenceType>(
     task.cadence ?? CADENCE.NONE,
   )
@@ -91,8 +88,6 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
     setTitle(task.title)
     setType(task.type)
     setDueDate(task.due_date ?? '')
-    setEventTime(task.event_time ?? '')
-    setEventDuration(task.event_duration?.toString() ?? '')
     setCadence(task.cadence ?? CADENCE.NONE)
     setPriority(task.priority ?? null)
     setIsMust(task.is_must)
@@ -127,13 +122,11 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
       parent_task_id: task.id,
       ticket_id: null,
       order_index: subtasks.length,
-      event_time: null,
-      event_duration: null,
       cadence: null,
       cadence_days: null,
       cadence_date: null,
       cadence_interval: null,
-      push_count: 0,
+      push_count: 0, sprint_id: null, blocked: false, blocked_note: null,
     })
     setNewSub(getSubtaskInitial(task))
   }
@@ -174,7 +167,7 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
       overlayProps={{ backgroundOpacity: 0.3, blur: 3 }}
       styles={{
         content: {
-          background: '#F5F6F8',
+          background: 'var(--mantine-color-body)',
           display: 'flex',
           flexDirection: 'column',
         },
@@ -304,6 +297,15 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                   }))}
                   radius="lg"
                 />
+                <Select
+                  label={STRINGS.SPRINT}
+                  value={task.sprint_id || null}
+                  onChange={(v) => saveField('sprint_id', v || null)}
+                  clearable
+                  placeholder={STRINGS.NO_SPRINT}
+                  data={sprints.map((s) => ({ value: s.id, label: s.name }))}
+                  radius="lg"
+                />
               </Group>
 
               <Group grow>
@@ -332,6 +334,14 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                       : {}
                   }
                 />
+                <TextInput
+                  label="Reminder"
+                  type="time"
+                  value={task.reminder_time ?? ''}
+                  onChange={(e) => saveField('reminder_time', e.target.value || null)}
+                  radius="lg"
+                  placeholder="HH:MM"
+                />
                 <Select
                   label={STRINGS.CADENCE}
                   value={cadence}
@@ -347,34 +357,6 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                   radius="lg"
                 />
               </Group>
-
-              {type === TASK_TYPE.EVENT && (
-                <Group grow>
-                  <TextInput
-                    label={STRINGS.EVENT_TIME}
-                    type="time"
-                    value={eventTime}
-                    onChange={(e) => {
-                      setEventTime(e.target.value)
-                      saveField('event_time', e.target.value || null)
-                    }}
-                    radius="lg"
-                  />
-                  <TextInput
-                    label={STRINGS.EVENT_DURATION}
-                    type="number"
-                    value={eventDuration}
-                    onChange={(e) => {
-                      setEventDuration(e.target.value)
-                      saveField(
-                        'event_duration',
-                        e.target.value ? parseInt(e.target.value) : null,
-                      )
-                    }}
-                    radius="lg"
-                  />
-                </Group>
-              )}
 
               <Switch
                 label={STRINGS.MUST_TODAY}
@@ -430,7 +412,7 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                 )}
               </Group>
 
-              {subtasks.map((st) => {
+              <SortableList items={subtasks} onReorder={(reordered) => persistOrder(reordered, (id, d) => update(id, d), (id, d) => update(id, d))} renderItem={(st) => {
                 const isDone = st.status === TASK_STATUS.DONE
                 const isCurrent =
                   !isDone && !!st.due_date && isToday(parseISO(st.due_date))
@@ -444,7 +426,7 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                       style={{
                         borderRadius: 'var(--mantine-radius-lg)',
                         background: isDone
-                          ? 'var(--mantine-color-gray-0)'
+                          ? 'var(--mantine-color-dark-6)'
                           : 'white',
                         border: '1px solid var(--mantine-color-gray-2)',
                         opacity: isDone ? 0.6 : 1,
@@ -561,7 +543,7 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                     )}
                   </Stack>
                 )
-              })}
+              }} />
 
               {/* Add subtask input */}
               <Box
@@ -569,7 +551,7 @@ export function TaskDetailSheet({ task, onClose }: DetailProps) {
                 style={{
                   borderRadius: 'var(--mantine-radius-lg)',
                   border: `1.5px dashed var(--mantine-color-${accentColor}-3)`,
-                  background: `var(--mantine-color-${accentColor}-0)`,
+                  background: 'var(--mantine-color-dark-6)',
                 }}
               >
                 <TextInput

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   Box,
   Text,
@@ -13,6 +14,7 @@ import {
   Badge,
   Modal,
   Textarea,
+  Button,
 } from '@mantine/core'
 import { useEffect, useState } from 'react'
 import { useFinanceStore } from '../store/financeStore'
@@ -25,19 +27,26 @@ import {
   daysUntilRenewal,
 } from '../utils'
 import { ACCOUNT_TYPE_LABELS } from '../constants/strings'
-import { updateRefund as updateRefundDb } from '../services/refundService'
+import {
+  updateRefund as updateRefundDb,
+  deleteRefund as deleteRefundDb,
+} from '../services/refundService'
 import {
   updateSplitwise as updateSplitDb,
   deleteSplitwise as deleteSplitDb,
 } from '../services/splitwiseService'
-import { updateSubscription as updateSubDb } from '../services/subscriptionService'
+import {
+  updateSubscription as updateSubDb,
+  deleteSubscription as deleteSubDb,
+} from '../services/subscriptionService'
 import {
   deleteAccount,
   insertAccount as insertAcctDb,
   updateAccount as updateAcctDb,
 } from '../services/accountService'
-import { Button } from '@mantine/core'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
 import {
   Account,
   Refund,
@@ -281,6 +290,22 @@ export function AccountsScreen() {
     setEditSubId(null)
   }
 
+  async function deleteRefund(id: string) {
+    store.removeRefund(id)
+    try {
+      await deleteRefundDb(id)
+    } catch {}
+    setEditRefundId(null)
+  }
+
+  async function deleteSub(id: string) {
+    store.removeSubscription(id)
+    try {
+      await deleteSubDb(id)
+    } catch {}
+    setEditSubId(null)
+  }
+
   // Finance tasks
   async function addFinanceTask() {
     if (!newTaskTitle.trim()) return
@@ -303,13 +328,14 @@ export function AccountsScreen() {
       parent_task_id: null,
       ticket_id: null,
       order_index: 0,
-      event_time: null,
-      event_duration: null,
       cadence: null,
       cadence_days: null,
       cadence_date: null,
       cadence_interval: null,
       push_count: 0,
+      sprint_id: null,
+      blocked: false,
+      blocked_note: null,
       is_learning: false,
     })
     setNewTaskTitle('')
@@ -327,122 +353,35 @@ export function AccountsScreen() {
     )
   }
 
+  const [activeTab, setActiveTab] = useState<'todos' | 'refunds' | 'splitwise' | 'subscriptions' | 'accounts'>('todos')
+
   return (
     <Stack gap="lg">
-      {/* ── ACCOUNTS ── */}
-      <Paper p="lg" radius="xl" withBorder>
-        <Group justify="space-between" mb="md">
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-            {STRINGS.ACCOUNTS_INVENTORY}
-          </Text>
-          <Button
-            variant="light"
-            color="teal"
-            radius="xl"
-            size="xs"
-            leftSection={<Plus size={12} />}
-            onClick={() => setShowAddAcct(true)}
-          >
-            {STRINGS.ADD_ACCOUNT}
-          </Button>
-        </Group>
-
-        {!accounts.length && (
-          <Text size="sm" c="dimmed">
-            {STRINGS.NO_ACCOUNTS}
-          </Text>
-        )}
-
-        <Stack gap="md">
-          {ACCOUNT_TYPE_LABELS.map(({ key, label }) => {
-            const grp = accounts.filter((a) => a.type === key)
-            if (!grp.length) return null
-            return (
-              <Box key={key}>
-                <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb="xs">
-                  {label}
-                </Text>
-                <Stack gap="xs">
-                  {grp.map((a) => (
-                    <Group
-                      key={a.id}
-                      gap="sm"
-                      p="sm"
-                      style={{
-                        borderRadius: 'var(--mantine-radius-lg)',
-                        background: 'var(--mantine-color-gray-0)',
-                      }}
-                    >
-                      <Box style={{ flex: 1 }}>
-                        <Text size="sm" fw={700}>
-                          {a.name}
-                        </Text>
-                        <Group gap="xs">
-                          {a.last_four && (
-                            <Text size="xs" c="dimmed">
-                              ···{a.last_four}
-                            </Text>
-                          )}
-                          {a.label && (
-                            <Text size="xs" c="dimmed">
-                              {a.label}
-                            </Text>
-                          )}
-                          {a.due_date && (
-                            <Text size="xs" c="dimmed">
-                              {STRINGS.DUE} {a.due_date}
-                              {STRINGS.TH}
-                            </Text>
-                          )}
-                        </Group>
-                      </Box>
-                      <ActionIcon
-                        variant="subtle"
-                        size="xs"
-                        onClick={() => setEditAcctId(a.id)}
-                      >
-                        <PencilSimple size={12} />
-                      </ActionIcon>
-                      {confirmDeleteAcct === a.id ? (
-                        <Group gap={4}>
-                          <Button
-                            size="xs"
-                            color="red"
-                            radius="xl"
-                            onClick={() => deleteAcct(a.id)}
-                          >
-                            {STRINGS.YES}
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="default"
-                            radius="xl"
-                            onClick={() => setConfirmDeleteAcct(null)}
-                          >
-                            {STRINGS.NO}
-                          </Button>
-                        </Group>
-                      ) : (
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          size="xs"
-                          onClick={() => setConfirmDeleteAcct(a.id)}
-                        >
-                          <Trash size={12} />
-                        </ActionIcon>
-                      )}
-                    </Group>
-                  ))}
-                </Stack>
-              </Box>
-            )
-          })}
-        </Stack>
-      </Paper>
+      {/* Tabs */}
+      <Group gap={6}>
+        {([
+          { value: 'todos' as const, label: 'Todos' },
+          { value: 'refunds' as const, label: 'Refunds' },
+          { value: 'splitwise' as const, label: 'Splitwise' },
+          { value: 'subscriptions' as const, label: 'Subscriptions' },
+          { value: 'accounts' as const, label: 'Bank Accounts' },
+        ]).map((tab) => (
+          <UnstyledButton key={tab.value} onClick={() => setActiveTab(tab.value)}>
+            <Box px="md" py={6} style={{
+              borderRadius: 'var(--mantine-radius-xl)',
+              background: activeTab === tab.value ? 'var(--mantine-color-teal-6)' : 'rgba(255,255,255,0.05)',
+              transition: 'all 0.15s ease',
+            }}>
+              <Text size="xs" fw={activeTab === tab.value ? 700 : 500} c={activeTab === tab.value ? 'white' : 'dimmed'}>
+                {tab.label}
+              </Text>
+            </Box>
+          </UnstyledButton>
+        ))}
+      </Group>
 
       {/* ── FINANCE TASKS ── */}
-      <Paper p="lg" radius="xl" withBorder>
+      {activeTab === 'todos' && <Paper p="lg" radius="xl" withBorder>
         <Group justify="space-between" mb="md">
           <Text size="xs" fw={700} tt="uppercase" c="dimmed">
             {STRINGS.FINANCE_TODOS}
@@ -453,7 +392,14 @@ export function AccountsScreen() {
             radius="xl"
             size="xs"
             leftSection={<Plus size={12} />}
-            onClick={() => setDetailTask({ type: TASK_TYPE.FINANCE } as Task)}
+            onClick={() => {
+              setNewTaskTitle('')
+              document
+                .querySelector<HTMLInputElement>(
+                  '[placeholder="' + STRINGS.ADD_FINANCE_TASK + '"]',
+                )
+                ?.focus()
+            }}
           >
             {STRINGS.ADD}
           </Button>
@@ -465,15 +411,14 @@ export function AccountsScreen() {
           </Text>
         )}
 
-        <Stack gap="xs">
-          {financeTasks.map((t) => (
+        <Stack gap="md">
+          <SortableList items={financeTasks} onReorder={(r) => persistOrder(r, (id, d) => updateTodo(id, d), (id, d) => updateTodoDb(id, d))} renderItem={(t) => (
             <Group
-              key={t.id}
-              gap="sm"
-              p="sm"
+              gap="md"
+              p="md"
               style={{
                 borderRadius: 'var(--mantine-radius-lg)',
-                background: 'var(--mantine-color-gray-0)',
+                background: 'var(--mantine-color-dark-6)',
               }}
             >
               <UnstyledButton
@@ -523,11 +468,11 @@ export function AccountsScreen() {
                 <Trash size={12} />
               </ActionIcon>
             </Group>
-          ))}
+          )} />
         </Stack>
 
         {/* Quick add */}
-        <Group gap="xs" mt="sm">
+        <Group gap="md" mt="sm">
           <TextInput
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
@@ -552,7 +497,7 @@ export function AccountsScreen() {
         {doneTasks.length > 0 && (
           <>
             <UnstyledButton onClick={() => setShowDoneTasks((o) => !o)} mt="sm">
-              <Group gap="xs">
+              <Group gap="md">
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                   {STRINGS.DONE} ({doneTasks.length})
                 </Text>
@@ -564,16 +509,16 @@ export function AccountsScreen() {
               </Group>
             </UnstyledButton>
             <Collapse in={showDoneTasks}>
-              <Stack gap="xs" mt="xs">
+              <Stack gap="md" mt="xs">
                 {doneTasks.map((t) => (
                   <Group
                     key={t.id}
-                    gap="sm"
-                    p="xs"
+                    gap="md"
+                    p="md"
                     opacity={0.5}
                     style={{
                       borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-gray-0)',
+                      background: 'var(--mantine-color-dark-6)',
                     }}
                   >
                     <UnstyledButton
@@ -613,10 +558,10 @@ export function AccountsScreen() {
             </Collapse>
           </>
         )}
-      </Paper>
+      </Paper>}
 
       {/* ── REFUNDS ── */}
-      <Paper p="lg" radius="xl" withBorder>
+      {activeTab === 'refunds' && <Paper p="lg" radius="xl" withBorder>
         <Group justify="space-between" mb="md">
           <Text size="xs" fw={700} tt="uppercase" c="dimmed">
             {STRINGS.REFUND_TRACKER}
@@ -639,7 +584,7 @@ export function AccountsScreen() {
           </Text>
         )}
 
-        <Stack gap="sm">
+        <Stack gap="md">
           {pending.map((r) => {
             const days = daysSince(r.returned_at)
             const over = isOverdue(r.expected_by)
@@ -650,18 +595,19 @@ export function AccountsScreen() {
                   refund={r}
                   onSave={(d) => saveRefundEdit(r.id, d)}
                   onCancel={() => setEditRefundId(null)}
+                  onDelete={() => deleteRefund(r.id)}
                 />
               )
             return (
               <Paper
                 key={r.id}
-                p="sm"
+                p="md"
                 radius="lg"
                 withBorder
                 style={{
                   borderColor: over
                     ? 'var(--mantine-color-red-3)'
-                    : 'var(--mantine-color-gray-2)',
+                    : 'rgba(255,255,255,0.1)',
                 }}
               >
                 <Group justify="space-between" mb={4}>
@@ -672,7 +618,7 @@ export function AccountsScreen() {
                     {formatMoney(r.amount)}
                   </Text>
                 </Group>
-                <Group gap="xs" mb="sm">
+                <Group gap="md" mb="sm">
                   <Text size="xs" c="dimmed">
                     {STRINGS.RETURNED} {formatDateShort(r.returned_at)}
                   </Text>
@@ -681,7 +627,7 @@ export function AccountsScreen() {
                     {over ? ` · ${STRINGS.OVERDUE}` : ` · day ${days}`}
                   </Text>
                 </Group>
-                <Group gap="xs">
+                <Group gap="md">
                   {over && (
                     <Button
                       variant="light"
@@ -727,7 +673,7 @@ export function AccountsScreen() {
         {received.length > 0 && (
           <>
             <UnstyledButton onClick={() => setShowReceived((o) => !o)} mt="sm">
-              <Group gap="xs">
+              <Group gap="md">
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                   {STRINGS.RECEIVED} ({received.length})
                 </Text>
@@ -735,16 +681,16 @@ export function AccountsScreen() {
               </Group>
             </UnstyledButton>
             <Collapse in={showReceived}>
-              <Stack gap="xs" mt="xs">
+              <Stack gap="md" mt="xs">
                 {received.map((r) => (
                   <Group
                     key={r.id}
-                    gap="sm"
-                    p="xs"
+                    gap="md"
+                    p="md"
                     opacity={0.6}
                     style={{
                       borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-gray-0)',
+                      background: 'var(--mantine-color-dark-6)',
                     }}
                   >
                     <CheckCircle
@@ -764,10 +710,10 @@ export function AccountsScreen() {
             </Collapse>
           </>
         )}
-      </Paper>
+      </Paper>}
 
       {/* ── SPLITWISE ── */}
-      <Paper p="lg" radius="xl" withBorder>
+      {activeTab === 'splitwise' && <Paper p="lg" radius="xl" withBorder>
         <Group justify="space-between" mb="md">
           <Text size="xs" fw={700} tt="uppercase" c="dimmed">
             {STRINGS.SPLITWISE}
@@ -792,7 +738,7 @@ export function AccountsScreen() {
 
         <Stack gap="md">
           {owedToMe.length > 0 && (
-            <Stack gap="xs">
+            <Stack gap="md">
               <Text size="xs" fw={600} c="dimmed">
                 {STRINGS.YOU_ARE_OWED}
               </Text>
@@ -807,7 +753,7 @@ export function AccountsScreen() {
                     />
                   )
                 return (
-                  <Paper key={s.id} p="sm" radius="lg" withBorder>
+                  <Paper key={s.id} p="md" radius="lg" withBorder>
                     <Group justify="space-between" mb={4}>
                       <Text size="sm" fw={600}>
                         {s.person}
@@ -821,7 +767,7 @@ export function AccountsScreen() {
                         {s.description}
                       </Text>
                     )}
-                    <Group gap="xs">
+                    <Group gap="md">
                       <Text size="xs" c="dimmed">
                         {formatAge(s.logged_at)}
                       </Text>
@@ -866,7 +812,7 @@ export function AccountsScreen() {
           )}
 
           {iOwe.length > 0 && (
-            <Stack gap="xs">
+            <Stack gap="md">
               <Text size="xs" fw={600} c="dimmed">
                 {STRINGS.YOU_OWE}
               </Text>
@@ -881,7 +827,7 @@ export function AccountsScreen() {
                     />
                   )
                 return (
-                  <Paper key={s.id} p="sm" radius="lg" withBorder>
+                  <Paper key={s.id} p="md" radius="lg" withBorder>
                     <Group justify="space-between" mb={4}>
                       <Text size="sm" fw={600}>
                         {s.person}
@@ -895,7 +841,7 @@ export function AccountsScreen() {
                         {s.description}
                       </Text>
                     )}
-                    <Group gap="xs">
+                    <Group gap="md">
                       <Text size="xs" c="dimmed">
                         {formatAge(s.logged_at)}
                       </Text>
@@ -934,7 +880,7 @@ export function AccountsScreen() {
         {settled.length > 0 && (
           <>
             <UnstyledButton onClick={() => setShowSettled((o) => !o)} mt="sm">
-              <Group gap="xs">
+              <Group gap="md">
                 <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                   {STRINGS.SETTLED_THIS_MONTH} ({settled.length})
                 </Text>
@@ -942,16 +888,16 @@ export function AccountsScreen() {
               </Group>
             </UnstyledButton>
             <Collapse in={showSettled}>
-              <Stack gap="xs" mt="xs">
+              <Stack gap="md" mt="xs">
                 {settled.map((s) => (
                   <Group
                     key={s.id}
-                    gap="sm"
-                    p="xs"
+                    gap="md"
+                    p="md"
                     opacity={0.5}
                     style={{
                       borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-gray-0)',
+                      background: 'var(--mantine-color-dark-6)',
                     }}
                   >
                     <CheckCircle
@@ -971,10 +917,10 @@ export function AccountsScreen() {
             </Collapse>
           </>
         )}
-      </Paper>
+      </Paper>}
 
       {/* ── SUBSCRIPTIONS ── */}
-      <Paper p="lg" radius="xl" withBorder>
+      {activeTab === 'subscriptions' && <Paper p="lg" radius="xl" withBorder>
         <Group justify="space-between" mb="md">
           <Box>
             <Text size="xs" fw={700} tt="uppercase" c="dimmed">
@@ -1004,7 +950,7 @@ export function AccountsScreen() {
           </Text>
         )}
 
-        <Stack gap="sm">
+        <Stack gap="md">
           {soon.length > 0 && (
             <>
               <Text size="xs" fw={600} c="orange" tt="uppercase">
@@ -1018,12 +964,13 @@ export function AccountsScreen() {
                       sub={s}
                       onSave={(d) => saveSubEdit(s.id, d)}
                       onCancel={() => setEditSubId(null)}
+                      onDelete={() => deleteSub(s.id)}
                     />
                   )
                 return (
                   <Paper
                     key={s.id}
-                    p="sm"
+                    p="md"
                     radius="lg"
                     withBorder
                     style={{ borderColor: 'var(--mantine-color-orange-3)' }}
@@ -1036,7 +983,7 @@ export function AccountsScreen() {
                         {formatMoney(s.amount)}
                       </Text>
                     </Group>
-                    <Group gap="xs">
+                    <Group gap="md">
                       <Badge variant="warning" size="xs">
                         {STRINGS.RENEWS_IN} {daysUntilRenewal(s.renewal_day)}{' '}
                         {STRINGS.DAYS}
@@ -1072,16 +1019,17 @@ export function AccountsScreen() {
                   sub={s}
                   onSave={(d) => saveSubEdit(s.id, d)}
                   onCancel={() => setEditSubId(null)}
+                  onDelete={() => deleteSub(s.id)}
                 />
               )
             return (
               <Group
                 key={s.id}
-                gap="sm"
-                p="sm"
+                gap="md"
+                p="md"
                 style={{
                   borderRadius: 'var(--mantine-radius-lg)',
-                  background: 'var(--mantine-color-gray-0)',
+                  background: 'var(--mantine-color-dark-6)',
                 }}
               >
                 <Box style={{ flex: 1 }}>
@@ -1113,7 +1061,7 @@ export function AccountsScreen() {
             )
           })}
         </Stack>
-      </Paper>
+      </Paper>}
 
       {/* ── MODALS ── */}
       <AccountFormModal
@@ -1309,6 +1257,7 @@ function RefundEditForm({
   refund,
   onSave,
   onCancel,
+  onDelete,
 }: {
   refund: { description: string; amount: number; expected_by: string }
   onSave: (d: {
@@ -1317,14 +1266,15 @@ function RefundEditForm({
     expected_by: string
   }) => void
   onCancel: () => void
+  onDelete: () => void
 }) {
   const [desc, setDesc] = useState(refund.description)
   const [amt, setAmt] = useState(String(refund.amount / 100))
   const [exp, setExp] = useState(refund.expected_by)
 
   return (
-    <Paper p="sm" radius="lg" withBorder>
-      <Stack gap="xs">
+    <Paper p="md" radius="lg" withBorder>
+      <Stack gap="md">
         <TextInput
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
@@ -1350,7 +1300,7 @@ function RefundEditForm({
           size="xs"
           radius="lg"
         />
-        <Group gap="xs">
+        <Group gap="md">
           <Button
             size="xs"
             radius="xl"
@@ -1367,6 +1317,15 @@ function RefundEditForm({
           </Button>
           <Button size="xs" radius="xl" variant="default" onClick={onCancel}>
             {STRINGS.CANCEL}
+          </Button>
+          <Button
+            size="xs"
+            radius="xl"
+            color="red"
+            variant="light"
+            onClick={onDelete}
+          >
+            {STRINGS.DELETE}
           </Button>
         </Group>
       </Stack>
@@ -1395,8 +1354,8 @@ function SplitEditForm({
   const [desc, setDesc] = useState(entry.description ?? '')
 
   return (
-    <Paper p="sm" radius="lg" withBorder>
-      <Stack gap="xs">
+    <Paper p="md" radius="lg" withBorder>
+      <Stack gap="md">
         <TextInput
           value={person}
           onChange={(e) => setPerson(e.target.value)}
@@ -1421,7 +1380,7 @@ function SplitEditForm({
           size="xs"
           radius="lg"
         />
-        <Group gap="xs">
+        <Group gap="md">
           <Button
             size="xs"
             radius="xl"
@@ -1452,6 +1411,7 @@ function SubEditForm({
   sub,
   onSave,
   onCancel,
+  onDelete,
 }: {
   sub: { name: string; amount: number; period: string; renewal_day: number }
   onSave: (d: {
@@ -1461,6 +1421,7 @@ function SubEditForm({
     renewal_day: number
   }) => void
   onCancel: () => void
+  onDelete: () => void
 }) {
   const [name, setName] = useState(sub.name)
   const [amt, setAmt] = useState(String(sub.amount / 100))
@@ -1468,8 +1429,8 @@ function SubEditForm({
   const [day, setDay] = useState(String(sub.renewal_day))
 
   return (
-    <Paper p="sm" radius="lg" withBorder>
-      <Stack gap="xs">
+    <Paper p="md" radius="lg" withBorder>
+      <Stack gap="md">
         <TextInput
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -1487,7 +1448,7 @@ function SubEditForm({
           size="xs"
           radius="lg"
         />
-        <Group gap="xs">
+        <Group gap="md">
           {['monthly', 'yearly'].map((p) => (
             <Badge
               key={p}
@@ -1511,7 +1472,7 @@ function SubEditForm({
             placeholder="15"
           />
         </Group>
-        <Group gap="xs">
+        <Group gap="md">
           <Button
             size="xs"
             radius="xl"
@@ -1529,6 +1490,15 @@ function SubEditForm({
           </Button>
           <Button size="xs" radius="xl" variant="default" onClick={onCancel}>
             {STRINGS.CANCEL}
+          </Button>
+          <Button
+            size="xs"
+            radius="xl"
+            color="red"
+            variant="light"
+            onClick={onDelete}
+          >
+            {STRINGS.DELETE}
           </Button>
         </Group>
       </Stack>

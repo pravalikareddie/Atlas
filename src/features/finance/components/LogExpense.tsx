@@ -10,6 +10,7 @@ import {
   UnstyledButton,
   Box,
   Progress,
+  Button,
 } from '@mantine/core'
 import { useFinanceStore } from '../store/financeStore'
 import { useBudgetSummary } from '../hooks/useBudgetSummary'
@@ -28,20 +29,21 @@ import {
   deleteExpense as deleteExpenseDb,
 } from '../services/expenseService'
 import { callClaude } from '../../../lib/anthropic'
-import { Button } from '@mantine/core'
 import { STRINGS } from '../../tasks/constants/strings'
 import { USER_ID } from '../../tasks/constants/taskConstants'
 import { LogHeader } from './LogTypeSelector'
 import { ROUTES } from '../../../app/routes'
 
 // ─── LogExpense ───────────────────────────────────────────────────────────────
-export function LogExpense() {
+export function LogExpense({
+  defaultCategory = '',
+}: { defaultCategory?: string } = {}) {
+  const [category, setCategory] = useState(defaultCategory)
   const navigate = useNavigate()
   const { addExpense, removeExpense, expenses, currentMonth } =
     useFinanceStore()
   const { rows } = useBudgetSummary()
   const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState('')
   const [note, setNote] = useState('')
   const [checkResult, setCheckResult] = useState<string | null>(null)
   const [postLog, setPostLog] = useState<{ text: string; id: string } | null>(
@@ -50,7 +52,7 @@ export function LogExpense() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const cents = dollarsToCents(parseFloat(amount) || 0)
+  const cents = dollarsToCents(Number(amount) || 0)
   const canLog = cents > 0 && category !== '' && !saving
   const budgetRow = rows.find((r) => r.category === category)
   const spent = budgetRow?.spent ?? 0
@@ -72,12 +74,25 @@ export function LogExpense() {
     if (!canLog) return
     const cat = getCategoryInfo(category)
     const newTotal = spent + cents
-    const status =
-      newTotal > budget && budget > 0
-        ? `${STRINGS.PUTS_YOU_AT} ${formatMoneyWhole(newTotal)} · ${formatMoney(newTotal - budget)} ${STRINGS.OVER_BUDGET}`
-        : `${STRINGS.KEEPS_YOU} ${formatMoney(budget - newTotal)} ${STRINGS.UNDER_BUDGET}`
+    const remaining = budget - newTotal
+    const pct = budget > 0 ? Math.round((newTotal / budget) * 100) : 0
+
+    let status = ''
+    let warning = ''
+    if (budget === 0) {
+      status = `No budget set for ${cat.label}`
+    } else if (remaining < 0) {
+      status = `⚠️ OVER BUDGET by ${formatMoney(Math.abs(remaining))} (${pct}% used)`
+      warning = 'This will put you over budget. Consider if this is essential.'
+    } else if (pct > 80) {
+      status = `⚡ ${formatMoney(remaining)} left (${pct}% used) — getting tight`
+      warning = 'You are close to your limit. Proceed with caution.'
+    } else {
+      status = `✅ ${formatMoney(remaining)} remaining (${pct}% used) — you are good`
+    }
+
     setCheckResult(
-      `${cat.label}: ${formatMoneyWhole(spent)} ${STRINGS.OF} ${formatMoneyWhole(budget)}\n${status}`,
+      `${cat.label}: ${formatMoneyWhole(spent)} → ${formatMoneyWhole(newTotal)} of ${formatMoneyWhole(budget)}\n${status}${warning ? '\n' + warning : ''}`,
     )
   }
 
@@ -113,7 +128,7 @@ export function LogExpense() {
           ? `${formatMoney(newSpent - budget)} over`
           : `${formatMoney(budget - newSpent)} under`
       const fallback = `${cat.label} ${formatMoney(cents)} · ${formatMoneyWhole(newSpent)} of ${formatMoneyWhole(budget)} · ${overUnder}`
-      const prompt = `Evaluate expense. Max 2 lines, no emoji. ${cat.label} ${formatMoney(cents)}. Total: ${formatMoneyWhole(newSpent)}/${formatMoneyWhole(budget)}. ${weekCount + 1}x this week.`
+      const prompt = `Evaluate expense. Max 2 lines, no emoji. ${cat.label}${note ? `: ${note}` : ''} ${formatMoney(cents)}. Total: ${formatMoneyWhole(newSpent)}/${formatMoneyWhole(budget)}. ${weekCount + 1}x this week.`
       const aiText = await callClaude(prompt)
       setPostLog({ text: aiText || fallback, id: expense.id })
     } catch {
@@ -195,13 +210,13 @@ export function LogExpense() {
                 return (
                   <UnstyledButton key={key} onClick={() => setCategory(key)}>
                     <Box
-                      p="sm"
+                      p="md"
                       style={{
                         borderRadius: 'var(--mantine-radius-lg)',
                         textAlign: 'center',
                         background: sel
                           ? 'var(--mantine-color-teal-light)'
-                          : 'var(--mantine-color-gray-0)',
+                          : 'var(--mantine-color-dark-6)',
                         border: sel
                           ? '2px solid var(--mantine-color-teal-4)'
                           : '2px solid transparent',
@@ -224,7 +239,7 @@ export function LogExpense() {
           </Box>
 
           {category && budgetRow && (
-            <Paper p="sm" radius="lg" bg="var(--mantine-color-gray-0)">
+            <Paper p="md" radius="lg" bg="var(--mantine-color-dark-6)">
               <Group justify="space-between" mb={4}>
                 <Text size="xs" c="dimmed">
                   {getCategoryInfo(category).label} budget
@@ -240,7 +255,7 @@ export function LogExpense() {
               <Progress
                 value={budget > 0 ? (spent / budget) * 100 : 0}
                 color={budgetRow.overBudget ? 'red' : 'teal'}
-                bg="var(--mantine-color-gray-2)"
+                bg="rgba(255,255,255,0.1)"
                 radius="xl"
                 size="xs"
               />

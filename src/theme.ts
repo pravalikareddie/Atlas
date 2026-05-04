@@ -101,17 +101,36 @@ const navy: MantineColorsTuple = [
   '#4e7cbf',
   '#3264ac',
   '#245298',
-  '#183f82',
-  '#0e2e6c',
-  '#071f56',
+  '#0f3460',
+  '#16213e',
+  '#1a1a2e',
+]
+
+// ─── Dark palette (navy-black) ────────────────────────────────────────────────
+// Overrides Mantine's default gray-ish dark mode with the deep navy from mockups.
+// dark[0] = lightest text, dark[7] = card bg, dark[8] = surface bg, dark[9] = body bg
+
+const dark: MantineColorsTuple = [
+  '#ffffff', // 0 — primary text
+  '#e0e0e0', // 1 — secondary text
+  '#a0a4aa', // 2 — dimmed text
+  '#5c5f66', // 3 — border
+  '#373A40', // 4 — hover
+  '#2C2E33', // 5 — subtle bg
+  '#1a2332', // 6 — elevated surface
+  '#142030', // 7 — card/component bg
+  '#0e1624', // 8 — surface bg (sidebar)
+  '#0a1018', // 9 — body bg (deepest)
 ]
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
 export const theme = createTheme({
   primaryColor: 'teal',
+  white: '#ffffff',
+  black: '#111116',
 
-  colors: { teal, blue, coral, amber, green, purple, pink, navy },
+  colors: { teal, blue, coral, amber, green, purple, pink, navy, dark },
 
   // Typography — Nunito for warmth, JetBrains Mono for data
   fontFamily: "'Nunito', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -150,11 +169,11 @@ export const theme = createTheme({
   },
 
   shadows: {
-    xs: '0 1px 3px rgba(0,0,0,0.05)',
-    sm: '0 2px 8px rgba(0,0,0,0.08)',
-    md: '0 4px 16px rgba(0,0,0,0.1)',
-    lg: '0 8px 32px rgba(0,0,0,0.12)',
-    xl: '0 16px 48px rgba(0,0,0,0.16)',
+    xs: '0 1px 3px rgba(0,0,0,0.4)',
+    sm: '0 2px 8px rgba(0,0,0,0.5)',
+    md: '0 4px 16px rgba(0,0,0,0.5)',
+    lg: '0 8px 32px rgba(0,0,0,0.5)',
+    xl: '0 16px 48px rgba(0,0,0,0.6)',
   },
 
   other: {
@@ -251,7 +270,7 @@ export const theme = createTheme({
     },
 
     Paper: {
-      defaultProps: { bg: 'var(--mantine-color-body)' },
+      defaultProps: { shadow: 'sm' },
       styles: {
         root: {
           transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
@@ -300,6 +319,7 @@ export const theme = createTheme({
 
     Badge: {
       defaultProps: { radius: 'xl' },
+      styles: { label: { textTransform: 'none' } },
     },
 
     AppShell: {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useRoutineStore } from './useRoutineStore'
-import * as svc from '../routineService'
+import * as svc from '../services/routineService'
 import { USER_ID } from '../../tasks/constants/taskConstants'
 export function useRoutineData() {
   const store = useRoutineStore()

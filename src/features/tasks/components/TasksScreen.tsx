@@ -1,4 +1,7 @@
 import { STRINGS } from '../constants/strings'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
+import { updateTask as updateTaskRemote } from '../services/taskService'
 import { useState, useMemo } from 'react'
 import {
   format,
@@ -13,7 +16,6 @@ import {
   Group,
   Text,
   TextInput,
-  SegmentedControl,
   Select,
   Paper,
   Box,
@@ -22,6 +24,8 @@ import {
   CheckIcon,
   UnstyledButton,
   List,
+  Button,
+  Badge,
 } from '@mantine/core'
 import { useTaskData } from '../hooks/useTaskData'
 import { useTaskActions } from '../hooks/useTaskActions'
@@ -37,7 +41,6 @@ import {
   PRIORITY,
 } from '../constants/taskConstants'
 import { sortTasks } from '../utils/taskUtils'
-import { Button } from '@mantine/core'
 import { TaskListRow } from './TaskListRow'
 import { CalendarView } from './CalendarView'
 import { QuickAddModal } from './QuickAddModal'
@@ -52,7 +55,6 @@ import {
   TrashIcon,
   X,
 } from '@phosphor-icons/react'
-import { Badge } from '@mantine/core'
 type GroupBy = 'due_date' | 'type' | 'priority'
 
 const GROUP_BY_OPTIONS = [
@@ -165,7 +167,7 @@ export function TasksScreen() {
   }
 
   return (
-    <Stack gap="lg">
+    <Stack gap="lg" p="md">
       {/* Header */}
       <Box
         p="xl"
@@ -407,17 +409,17 @@ export function TasksScreen() {
                 <Badge variant="neutral">{g.tasks.length}</Badge>
               </Group>
 
-              {g.tasks.map((t) => (
+              <SortableList items={g.tasks} onReorder={(r) => persistOrder(r, (id, d) => update(id, d), (id, d) => updateTaskRemote(id, d))} renderItem={(t) => (
                 <TaskListRow
-                  key={t.id}
                   task={t}
                   selected={selectedIds.has(t.id)}
                   onToggleSelect={() => toggleSelect(t.id)}
                   onDone={() => markDone(t)}
                   onTap={() => setDetailTask(t)}
                   onDelete={() => remove(t.id)}
+                  onToggleToday={() => update(t.id, { do_today: !t.do_today })}
                 />
-              ))}
+              )} />
             </Stack>
           ))}
 
@@ -459,7 +461,7 @@ export function TasksScreen() {
                   px={12}
                   style={{
                     borderRadius: 'var(--mantine-radius-lg)',
-                    background: 'white',
+                    background: 'var(--mantine-color-dark-6)',
                     border: '1px solid var(--mantine-color-gray-2)',
                     opacity: 0.6,
                   }}
@@ -533,7 +535,7 @@ export function TasksScreen() {
                       opacity={0.5}
                       style={{
                         borderRadius: 'var(--mantine-radius-lg)',
-                        background: 'white',
+                        background: 'var(--mantine-color-dark-6)',
                         border: '1px solid var(--mantine-color-gray-2)',
                       }}
                     >
@@ -604,7 +606,7 @@ export function TasksScreen() {
 function StatChip({
   label,
   value,
-  color,
+
 }: {
   label: string
   value: number

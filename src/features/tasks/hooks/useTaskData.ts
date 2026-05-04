@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useTaskStore } from '../store/taskStore'
-import { fetchAllTasks } from '../services/taskService'
+import { fetchAllTasks, fetchSprints } from '../services/taskService'
 
 export function useTaskData() {
   const store = useTaskStore()
@@ -8,11 +8,13 @@ export function useTaskData() {
   useEffect(() => {
     if (store.loading) return
     store.setLoading(true)
-    fetchAllTasks()
-      .catch(() => [])
-      .then((data) => {
-        store.setTasks(data)
-        store.setLoading(false)
-      })
+    Promise.all([
+      fetchAllTasks().catch(() => []),
+      fetchSprints().catch(() => []),
+    ]).then(([tasks, sprints]) => {
+      store.setTasks(tasks)
+      store.setSprints(sprints)
+      store.setLoading(false)
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 }

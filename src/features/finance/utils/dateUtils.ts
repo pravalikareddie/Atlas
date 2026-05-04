@@ -41,8 +41,8 @@ export function formatAge(dateStr: string): string {
 
 export function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr)
-  if (isToday(d)) return 'today'
-  if (isYesterday(d)) return 'yesterday'
+  if (isToday(d)) return 'Today'
+  if (isYesterday(d)) return 'Yesterday'
   return format(d, 'MMM d')
 }
 

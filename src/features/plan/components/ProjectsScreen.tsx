@@ -1,218 +1,191 @@
-import { Box, Text, UnstyledButton } from '@mantine/core'
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Divider,
+  Group,
+  Menu,
+  Modal,
+  Paper,
+  Progress,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+  Textarea,
+  UnstyledButton,
+} from '@mantine/core'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlanStore } from '../store/planStore'
 import * as svc from '../services/planService'
 import { Project } from '../types/plan.types'
-import { Button } from '@mantine/core'
-import { Modal } from '@mantine/core'
 import { EmptyState } from '../../../shared/components/EmptyState'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
-import { ProgressBar } from '../../../shared/components/ProgressBar'
+import { STRINGS } from '../../tasks/constants/strings'
+import { USER_ID } from '../../tasks/constants/taskConstants'
+import { ROUTES } from '../../../app/routes'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
+import {
+  CaretRight,
+  Check,
+  DotsThree,
+  Pause,
+  PencilSimple,
+  Play,
+  Plus,
+  Trash,
+} from '@phosphor-icons/react'
 
-export function ProjectsScreen() {
-  const {
-    projects,
-    tasks,
-    goals,
-    milestones,
-    roadmaps,
-    items,
-    loading,
-    updateProject,
-    removeProject,
-  } = usePlanStore()
-  const navigate = useNavigate()
-  const [showAdd, setShowAdd] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [menuId, setMenuId] = useState<string | null>(null)
+const STATUS_COLOR: Record<string, string> = {
+  active: 'teal',
+  paused: 'amber',
+  done: 'green',
+  dropped: 'red',
+}
 
-  if (loading) return <SkeletonRow count={6} />
+const STATUS_LABEL: Record<string, string> = {
+  active: 'Active',
+  paused: 'Paused',
+  done: 'Done',
+  dropped: 'Dropped',
+}
 
-  const active = projects.filter((p) => p.status === 'active')
-  const paused = projects.filter((p) => p.status === 'paused')
-  const done = projects.filter((p) => p.status === 'done')
+// ─── Project Card ─────────────────────────────────────────────────────────────
 
-  async function setStatus(id: string, status: string) {
-    updateProject(id, { status: status as Project['status'] })
-    try {
-      await svc.updateProject(id, { status: status as Project['status'] })
-    } catch {}
-    setMenuId(null)
-  }
-
-  async function deleteProject(id: string) {
-    removeProject(id)
-    try {
-      await svc.deleteProject(id)
-    } catch {}
-    setMenuId(null)
-  }
-
-  function ProjectCard({ project }: { project: Project }) {
-    const pTasks = tasks.filter((t) => t.project_id === project.id)
-    const doneCount = pTasks.filter((t) => t.status === 'done').length
-    const ratio = pTasks.length > 0 ? doneCount / pTasks.length : 0
-    const goal = project.goal_id
-      ? goals.find((g) => g.id === project.goal_id)
-      : null
-    const milestone = project.milestone_id
-      ? milestones.find((m) => m.id === project.milestone_id)
-      : null
-    const roadmap = project.roadmap_id
-      ? roadmaps.find((r) => r.id === project.roadmap_id)
-      : null
-    const rmItem = project.roadmap_item_id
-      ? items.find((i) => i.id === project.roadmap_item_id)
-      : null
-    const isMenu = menuId === project.id
-    return (
-      <Box>
-        <Box>
-          <Box onClick={() => navigate(`/plan/projects/${project.id}`)}>
-            {project.title}
-          </Box>
-          <Box>
-            <UnstyledButton
-              onClick={() => {
-                setEditId(project.id)
-                setShowAdd(true)
-              }}
-            >
-              ✏️
-            </UnstyledButton>
-            <Box>
-              <UnstyledButton
-                onClick={() => setMenuId(isMenu ? null : project.id)}
-              >
-                ⋮
-              </UnstyledButton>
-              {isMenu && (
-                <>
-                  <Box onClick={() => setMenuId(null)} />
-                  <Box
-                    style={{
-                      background: '#1C1C1A',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                    }}
-                  >
-                    {project.status === 'active' && (
-                      <MBtn
-                        label="✓ mark done"
-                        onClick={() => setStatus(project.id, 'done')}
-                      />
-                    )}
-                    {project.status === 'active' && (
-                      <MBtn
-                        label="⏸ pause"
-                        onClick={() => setStatus(project.id, 'paused')}
-                      />
-                    )}
-                    {project.status === 'paused' && (
-                      <MBtn
-                        label="▶ resume"
-                        onClick={() => setStatus(project.id, 'active')}
-                      />
-                    )}
-                    <MBtn
-                      label="🗑 delete"
-                      onClick={() => deleteProject(project.id)}
-                    />
-                  </Box>
-                </>
-              )}
-            </Box>
-          </Box>
-        </Box>
-        {project.description && <Box>{project.description}</Box>}
-        <Box>
-          {goal && <Text component="span">🎯 {goal.title}</Text>}
-          {milestone && <Text component="span">◇ {milestone.title}</Text>}
-          {roadmap && <Text component="span">🗺 {roadmap.title}</Text>}
-          {rmItem && <Text component="span">· {rmItem.title}</Text>}
-          {project.deadline && (
-            <Text component="span">by {project.deadline}</Text>
-          )}
-          <Text component="span">{project.status}</Text>
-        </Box>
-        {pTasks.length > 0 && (
-          <>
-            <ProgressBar value={ratio} />
-            <Box>
-              {doneCount} of {pTasks.length} tasks
-            </Box>
-          </>
-        )}
-      </Box>
-    )
-  }
+function ProjectCard({
+  project,
+  onOpen,
+  onEdit,
+  onStatus,
+  onDelete,
+}: {
+  project: Project
+  onOpen: () => void
+  onEdit: () => void
+  onStatus: (status: string) => void
+  onDelete: () => void
+}) {
+  const { tasks, goals } = usePlanStore()
+  const pTasks = tasks.filter((t) => t.project_id === project.id)
+  const doneCount = pTasks.filter((t) => t.status === 'done').length
+  const ratio = pTasks.length > 0 ? (doneCount / pTasks.length) * 100 : 0
+  const goal = project.goal_id ? goals.find((g) => g.id === project.goal_id) : null
 
   return (
-    <Box>
-      <Box>
-        <Box>active projects</Box>
-        <Button
-          onClick={() => {
-            setEditId(null)
-            setShowAdd(true)
-          }}
-        >
-          + new project
-        </Button>
-      </Box>
-
-      {!active.length && !showAdd && (
-        <EmptyState
-          message="No projects yet. Start something."
-          sub="A project is a chunk of work with tasks you can check off."
-        />
-      )}
-
-      <Box>
-        {active.map((p) => (
-          <ProjectCard key={p.id} project={p} />
-        ))}
-      </Box>
-
-      {paused.length > 0 && (
-        <>
-          <Box>paused</Box>
-          <Box>
-            {paused.map((p) => (
-              <ProjectCard key={p.id} project={p} />
-            ))}
+    <UnstyledButton onClick={onOpen} w="100%">
+      <Paper p="lg" radius="xl" withBorder style={{ transition: 'all 0.15s ease' }}>
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Group gap="xs" mb={4}>
+              <Text fw={700} size="sm" truncate>
+                {project.title}
+              </Text>
+              <Badge size="xs" variant="light" color={STATUS_COLOR[project.status]}>
+                {STATUS_LABEL[project.status]}
+              </Badge>
+            </Group>
+            {project.description && (
+              <Text size="xs" c="dimmed" lineClamp={2} mb="xs">
+                {project.description}
+              </Text>
+            )}
+            <Group gap="xs">
+              {goal && (
+                <Badge size="xs" variant="light" color="blue">
+                  🎯 {goal.title}
+                </Badge>
+              )}
+              {project.deadline && (
+                <Text size="xs" c="dimmed">
+                  by {project.deadline}
+                </Text>
+              )}
+            </Group>
+            {pTasks.length > 0 && (
+              <Box mt="sm">
+                <Progress value={ratio} color="teal" radius="xl" size="sm" />
+                <Text size="xs" c="dimmed" mt={4}>
+                  {doneCount}/{pTasks.length} tasks
+                </Text>
+              </Box>
+            )}
           </Box>
-        </>
-      )}
 
-      {done.length > 0 && (
-        <>
-          <Box>completed</Box>
-          <Box>
-            {done.map((p) => (
-              <ProjectCard key={p.id} project={p} />
-            ))}
-          </Box>
-        </>
-      )}
-
-      {showAdd && (
-        <ProjectFormModal
-          projectId={editId}
-          onClose={() => {
-            setShowAdd(false)
-            setEditId(null)
-          }}
-        />
-      )}
-    </Box>
+          <Group gap={4} wrap="nowrap" onClick={(e) => e.stopPropagation()}>
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <ActionIcon variant="subtle" color="gray" size="sm">
+                  <DotsThree size={16} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item leftSection={<PencilSimple size={14} />} onClick={onEdit}>
+                  {STRINGS.EDIT}
+                </Menu.Item>
+                {project.status === 'active' && (
+                  <>
+                    <Menu.Item leftSection={<Check size={14} />} onClick={() => onStatus('done')}>
+                      Mark done
+                    </Menu.Item>
+                    <Menu.Item leftSection={<Pause size={14} />} onClick={() => onStatus('paused')}>
+                      Pause
+                    </Menu.Item>
+                  </>
+                )}
+                {project.status === 'paused' && (
+                  <Menu.Item leftSection={<Play size={14} />} onClick={() => onStatus('active')}>
+                    Resume
+                  </Menu.Item>
+                )}
+                <Menu.Divider />
+                <Menu.Item leftSection={<Trash size={14} />} color="red" onClick={onDelete}>
+                  {STRINGS.DELETE}
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+            <CaretRight size={14} color="var(--mantine-color-dimmed)" />
+          </Group>
+        </Group>
+      </Paper>
+    </UnstyledButton>
   )
 }
 
-function MBtn({ label, onClick }: { label: string; onClick: () => void }) {
-  return <UnstyledButton onClick={onClick}>{label}</UnstyledButton>
+// ─── Project Section ──────────────────────────────────────────────────────────
+
+function ProjectSection({
+  label,
+  projects,
+  badge,
+  children,
+}: {
+  label: string
+  projects: Project[]
+  badge?: number
+  children: React.ReactNode
+}) {
+  if (!projects.length) return null
+  return (
+    <Stack gap="sm">
+      <Group gap="xs">
+        <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+          {label}
+        </Text>
+        {badge !== undefined && (
+          <Badge variant="light" color="gray" size="xs">
+            {badge}
+          </Badge>
+        )}
+      </Group>
+      {children}
+    </Stack>
+  )
 }
+
+// ─── Form Modal ───────────────────────────────────────────────────────────────
 
 function ProjectFormModal({
   projectId,
@@ -221,15 +194,7 @@ function ProjectFormModal({
   projectId: string | null
   onClose: () => void
 }) {
-  const {
-    projects,
-    goals,
-    milestones,
-    roadmaps,
-    items,
-    addProject,
-    updateProject,
-  } = usePlanStore()
+  const { projects, goals, milestones, roadmaps, items, addProject, updateProject } = usePlanStore()
   const existing = projectId ? projects.find((p) => p.id === projectId) : null
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
@@ -251,20 +216,13 @@ function ProjectFormModal({
     setErr(false)
   }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filteredMilestones = goalId
-    ? milestones.filter((m) => m.goal_id === goalId)
-    : []
-  const filteredItems = roadmapId
-    ? items.filter((i) => i.roadmap_id === roadmapId)
-    : []
+  const filteredMilestones = goalId ? milestones.filter((m) => m.goal_id === goalId) : []
+  const filteredItems = roadmapId ? items.filter((i) => i.roadmap_id === roadmapId) : []
 
   async function save() {
-    if (!title.trim()) {
-      setErr(true)
-      return
-    }
+    if (!title.trim()) { setErr(true); return }
     const data = {
-      title,
+      title: title.trim(),
       description: desc || null,
       deadline: deadline || null,
       goal_id: goalId || null,
@@ -274,121 +232,196 @@ function ProjectFormModal({
     }
     if (existing) {
       updateProject(existing.id, data)
-      try {
-        await svc.updateProject(existing.id, data)
-      } catch {}
+      try { await svc.updateProject(existing.id, data) } catch {}
     } else {
-      const row = {
-        user_id: '00000000-0000-0000-0000-000000000001',
-        ...data,
-        status: 'active' as const,
-      }
+      const row = { user_id: USER_ID, ...data, status: 'active' as const }
       try {
         const r = await svc.insertProject(row)
         addProject(r)
       } catch {
-        addProject({
-          ...row,
-          id: crypto.randomUUID(),
-          created_at: new Date().toISOString(),
-        })
+        addProject({ ...row, id: crypto.randomUUID(), created_at: new Date().toISOString() })
       }
     }
     onClose()
   }
 
   return (
-    <Modal open={true} onClose={onClose}>
-      <Box>{existing ? 'Edit project' : 'New project'}</Box>
-      <label>title</label>
-      <input
-        value={title}
-        onChange={(e) => {
-          setTitle(e.target.value)
-          setErr(false)
-        }}
-        placeholder="Ship Atlas v1, AWS cert prep..."
-        autoFocus
-      />
-      {err && <Box>Required</Box>}
-      <label>description (optional)</label>
-      <input value={desc} onChange={(e) => setDesc(e.target.value)} />
-      <label>linked goal</label>
-      <select
-        value={goalId}
-        onChange={(e) => {
-          setGoalId(e.target.value)
-          setMilestoneId('')
-        }}
-      >
-        <option value="">None</option>
-        {goals
-          .filter((g) => g.status === 'active')
-          .map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.title}
-            </option>
-          ))}
-      </select>
-      {goalId && filteredMilestones.length > 0 && (
-        <>
-          <label>linked milestone</label>
-          <select
-            value={milestoneId}
-            onChange={(e) => setMilestoneId(e.target.value)}
+    <Modal
+      opened
+      onClose={onClose}
+      title={existing ? 'Edit Project' : 'New Project'}
+      radius="xl"
+      size="md"
+    >
+      <Stack gap="md">
+        <TextInput
+          label="Title"
+          value={title}
+          onChange={(e) => { setTitle(e.target.value); setErr(false) }}
+          placeholder="Ship Atlas v1, AWS cert prep..."
+          error={err ? STRINGS.REQUIRED : undefined}
+          autoFocus
+          radius="lg"
+        />
+        <Textarea
+          label="Description (optional)"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          radius="lg"
+          rows={2}
+        />
+        <Select
+          label="Linked goal"
+          value={goalId || null}
+          onChange={(v) => { setGoalId(v ?? ''); setMilestoneId('') }}
+          data={[
+            { value: '', label: 'None' },
+            ...goals.filter((g) => g.status === 'active').map((g) => ({ value: g.id, label: g.title })),
+          ]}
+          clearable
+          radius="lg"
+        />
+        {goalId && filteredMilestones.length > 0 && (
+          <Select
+            label="Linked milestone"
+            value={milestoneId || null}
+            onChange={(v) => setMilestoneId(v ?? '')}
+            data={[
+              { value: '', label: 'None' },
+              ...filteredMilestones.map((m) => ({ value: m.id, label: m.title })),
+            ]}
+            clearable
+            radius="lg"
+          />
+        )}
+        <Select
+          label="Linked roadmap"
+          value={roadmapId || null}
+          onChange={(v) => { setRoadmapId(v ?? ''); setRoadmapItemId('') }}
+          data={[
+            { value: '', label: 'None' },
+            ...roadmaps.map((r) => ({ value: r.id, label: r.title })),
+          ]}
+          clearable
+          radius="lg"
+        />
+        {roadmapId && filteredItems.length > 0 && (
+          <Select
+            label="Linked roadmap item"
+            value={roadmapItemId || null}
+            onChange={(v) => setRoadmapItemId(v ?? '')}
+            data={[
+              { value: '', label: 'None' },
+              ...filteredItems.map((i) => ({ value: i.id, label: i.title })),
+            ]}
+            clearable
+            radius="lg"
+          />
+        )}
+        <TextInput
+          label="Deadline (optional)"
+          type="date"
+          value={deadline}
+          onChange={(e) => setDeadline(e.target.value)}
+          radius="lg"
+        />
+        <Divider />
+        <Group justify="flex-end">
+          <Button variant="default" radius="xl" onClick={onClose}>
+            {STRINGS.CANCEL}
+          </Button>
+          <Button
+            radius="xl"
+            variant="gradient"
+            gradient={{ from: 'blue', to: 'teal' }}
+            onClick={save}
           >
-            <option value="">None</option>
-            {filteredMilestones.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title}
-              </option>
-            ))}
-          </select>
-        </>
-      )}
-      <label>linked roadmap</label>
-      <select
-        value={roadmapId}
-        onChange={(e) => {
-          setRoadmapId(e.target.value)
-          setRoadmapItemId('')
-        }}
-      >
-        <option value="">None</option>
-        {roadmaps.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.title}
-          </option>
-        ))}
-      </select>
-      {roadmapId && filteredItems.length > 0 && (
-        <>
-          <label>linked roadmap item</label>
-          <select
-            value={roadmapItemId}
-            onChange={(e) => setRoadmapItemId(e.target.value)}
-          >
-            <option value="">None</option>
-            {filteredItems.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.title}
-              </option>
-            ))}
-          </select>
-        </>
-      )}
-      <label>deadline (optional)</label>
-      <input
-        type="date"
-        value={deadline}
-        onChange={(e) => setDeadline(e.target.value)}
-      />
-      <Box>
-        <Button variant="secondary" onClick={onClose}>
-          cancel
-        </Button>
-        <Button onClick={save}>save</Button>
-      </Box>
+            {STRINGS.SAVE}
+          </Button>
+        </Group>
+      </Stack>
     </Modal>
+  )
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
+export function ProjectsScreen() {
+  const { projects, loading, updateProject, removeProject } = usePlanStore()
+  const navigate = useNavigate()
+  const [showAdd, setShowAdd] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+
+  if (loading) return <SkeletonRow count={6} />
+
+  const active = projects.filter((p) => p.status === 'active')
+  const paused = projects.filter((p) => p.status === 'paused')
+  const done = projects.filter((p) => p.status === 'done')
+
+  async function handleStatus(id: string, status: string) {
+    updateProject(id, { status: status as Project['status'] })
+    try { await svc.updateProject(id, { status: status as Project['status'] }) } catch {}
+  }
+
+  async function handleDelete(id: string) {
+    removeProject(id)
+    try { await svc.deleteProject(id) } catch {}
+  }
+
+  function renderCard(p: Project) {
+    return (
+      <ProjectCard
+        key={p.id}
+        project={p}
+        onOpen={() => navigate(ROUTES.PROJECT_DETAIL(p.id))}
+        onEdit={() => { setEditId(p.id); setShowAdd(true) }}
+        onStatus={(s) => handleStatus(p.id, s)}
+        onDelete={() => handleDelete(p.id)}
+      />
+    )
+  }
+
+  return (
+    <Stack gap="lg">
+      <Group justify="space-between" align="center">
+        <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+          Active Projects
+        </Text>
+        <Button
+          variant="light"
+          color="blue"
+          radius="xl"
+          size="sm"
+          leftSection={<Plus size={14} />}
+          onClick={() => { setEditId(null); setShowAdd(true) }}
+        >
+          New Project
+        </Button>
+      </Group>
+
+      {!active.length && !paused.length && !done.length && (
+        <EmptyState
+          message={STRINGS.NO_PROJECTS}
+          sub="A project is a chunk of work with tasks you can check off."
+        />
+      )}
+
+      <SortableList items={active} onReorder={(r) => persistOrder(r, (id, d) => updateProject(id, d), (id, d) => svc.updateProject(id, d))} renderItem={renderCard} />
+
+      <ProjectSection label="Paused" projects={paused} badge={paused.length}>
+        <Stack gap="sm">{paused.map(renderCard)}</Stack>
+      </ProjectSection>
+
+      <ProjectSection label="Completed" projects={done} badge={done.length}>
+        <Stack gap="sm">{done.map(renderCard)}</Stack>
+      </ProjectSection>
+
+      {showAdd && (
+        <ProjectFormModal
+          projectId={editId}
+          onClose={() => { setShowAdd(false); setEditId(null) }}
+        />
+      )}
+    </Stack>
   )
 }

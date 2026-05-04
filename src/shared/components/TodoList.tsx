@@ -6,8 +6,10 @@ import {
   TextInput,
   UnstyledButton,
   ActionIcon,
+  Button,
 } from '@mantine/core'
-import { Button } from '@mantine/core'
+import { COLORS } from '../../shared/constants/styles'
+import { SortableList } from './SortableList'
 
 interface TodoItem {
   id: string
@@ -22,6 +24,7 @@ interface Props {
   onAdd: (text: string) => void
   onDelete?: (id: string) => void
   onEdit?: (id: string, text: string) => void
+  onReorder?: (items: TodoItem[]) => void
   placeholder?: string
   emptyMessage?: string
   addLabel?: string
@@ -34,6 +37,7 @@ export function TodoList({
   onAdd,
   onDelete,
   onEdit,
+  onReorder,
   placeholder = 'New task...',
   emptyMessage = 'No tasks.',
   addLabel = '+ add',
@@ -68,15 +72,16 @@ export function TodoList({
         </Text>
       )}
 
-      {active.map((t) => (
-        <Group key={t.id} gap="sm" py={8}>
-          <UnstyledButton
-            onClick={() => onComplete(t.id)}
-            style={{
-              width: 20,
+      {onReorder && active.length > 0 ? (
+        <SortableList items={active} onReorder={onReorder} renderItem={(t) => (
+          <Group gap="sm" py={8}>
+            <UnstyledButton
+              onClick={() => onComplete(t.id)}
+              style={{
+                width: 20,
               height: 20,
               borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.12)',
+              border: `1px solid ${COLORS.WHITE_12}`,
               flexShrink: 0,
             }}
           />
@@ -127,7 +132,21 @@ export function TodoList({
             </ActionIcon>
           )}
         </Group>
-      ))}
+      )} />
+      ) : (
+        active.map((t) => (
+          <Group key={t.id} gap="sm" py={8}>
+            <UnstyledButton onClick={() => onComplete(t.id)} style={{ width: 20, height: 20, borderRadius: '50%', border: `1px solid ${COLORS.WHITE_12}`, flexShrink: 0 }} />
+            {editingId === t.id ? (
+              <TextInput value={editText} onChange={(e) => setEditText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitEdit(t.id); if (e.key === 'Escape') setEditingId(null) }} style={{ flex: 1 }} autoFocus />
+            ) : (
+              <Text style={{ flex: 1, cursor: onEdit ? 'pointer' : undefined }} c="white" onClick={() => { if (onEdit) { setEditingId(t.id); setEditText(t.description) } }}>{t.description}</Text>
+            )}
+            {onEdit && editingId !== t.id && <ActionIcon variant="subtle" color="gray" onClick={() => { setEditingId(t.id); setEditText(t.description) }}>✏️</ActionIcon>}
+            {onDelete && <ActionIcon variant="subtle" color="gray" onClick={() => onDelete(t.id)}>×</ActionIcon>}
+          </Group>
+        ))
+      )}
 
       {adding && (
         <Group gap="sm" mb="sm">

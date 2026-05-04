@@ -36,7 +36,7 @@ import {
   getCategoryInfo,
 } from '../constants/categories'
 import { useFinanceStore } from '../store/financeStore'
-import { deleteExpenseDb, updateExpenseDb } from '../services/accountService'
+import { deleteExpense as deleteExpenseDb, updateExpense as updateExpenseDb } from '../services/expenseService'
 import { STRINGS } from '../../tasks/constants/strings'
 
 export function ExpensesScreen() {
@@ -56,22 +56,6 @@ export function ExpensesScreen() {
     if (!categoryFilter) return monthExpenses
     return monthExpenses.filter((e) => e.category === categoryFilter)
   }, [monthExpenses, categoryFilter])
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, Expense[]>()
-    filtered.forEach((e) => {
-      const arr = map.get(e.category) ?? []
-      arr.push(e)
-      map.set(e.category, arr)
-    })
-    return Array.from(map.entries())
-      .map(([cat, items]) => ({
-        category: cat,
-        items: items.sort((a, b) => b.logged_at.localeCompare(a.logged_at)),
-        total: items.reduce((s, e) => s + e.amount, 0),
-      }))
-      .sort((a, b) => b.total - a.total)
-  }, [filtered])
 
   const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0)
 
@@ -212,114 +196,39 @@ export function ExpensesScreen() {
         </Paper>
       )}
 
-      {/* Grouped by category */}
-      {grouped.map((group) => {
-        const cat = getCategoryInfo(group.category)
-        return (
-          <Paper key={group.category} p="lg" radius="xl" withBorder>
-            <Group justify="space-between" mb="md">
-              <Group gap="xs">
-                <Text style={{ fontSize: 20 }}>{cat.emoji}</Text>
-                <Text size="sm" fw={700}>
-                  {cat.label}
-                </Text>
-                <Badge variant="light" color="gray" size="xs">
-                  {group.items.length}
-                </Badge>
+      {/* Expense list — flat, sorted by date */}
+      <Stack gap={2}>
+        {[...filtered].sort((a, b) => b.logged_at.localeCompare(a.logged_at)).map((e) => {
+          const cat = getCategoryInfo(e.category)
+          if (confirmId === e.id) {
+            return (
+              <Group key={e.id} justify="space-between" py="xs" px={4}>
+                <Text size="sm">{STRINGS.CONFIRM_DELETE_EXPENSE}</Text>
+                <Group gap="xs">
+                  <Button variant="filled" color="red" size="xs" radius="xl" onClick={() => handleDelete(e.id)}>{STRINGS.YES}</Button>
+                  <Button variant="default" size="xs" radius="xl" onClick={() => setConfirmId(null)}>{STRINGS.NO}</Button>
+                </Group>
               </Group>
-              <Text size="sm" fw={700} c="teal">
-                {formatMoneyWhole(group.total)}
-              </Text>
+            )
+          }
+          return (
+            <Group key={e.id} gap="sm" py={8} px={4} wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+              <Text style={{ fontSize: 16, flexShrink: 0 }}>{cat.emoji}</Text>
+              <Text size="sm" fw={600} truncate style={{ flex: 1 }}>{e.note || cat.label}</Text>
+              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{formatDateShort(e.logged_at)}</Text>
+              <Text size="sm" fw={700} style={{ flexShrink: 0 }}>{formatMoneyWhole(e.amount)}</Text>
+              <ActionIcon variant="subtle" size="xs" onClick={() => setEditExpense(e)}><PencilSimple size={12} /></ActionIcon>
+              <ActionIcon variant="subtle" color="red" size="xs" onClick={() => setConfirmId(e.id)}><Trash size={12} /></ActionIcon>
             </Group>
-
-            <Stack gap="xs">
-              {group.items.map((e) => {
-                if (confirmId === e.id) {
-                  return (
-                    <Group
-                      key={e.id}
-                      justify="space-between"
-                      p="xs"
-                      style={{
-                        borderRadius: 'var(--mantine-radius-lg)',
-                        background: 'var(--mantine-color-red-0)',
-                      }}
-                    >
-                      <Text size="sm">{STRINGS.CONFIRM_DELETE_EXPENSE}</Text>
-                      <Group gap="xs">
-                        <Button
-                          variant="filled"
-                          color="red"
-                          size="xs"
-                          radius="xl"
-                          onClick={() => handleDelete(e.id)}
-                        >
-                          {STRINGS.YES}
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="xs"
-                          radius="xl"
-                          onClick={() => setConfirmId(null)}
-                        >
-                          {STRINGS.NO}
-                        </Button>
-                      </Group>
-                    </Group>
-                  )
-                }
-
-                return (
-                  <Group
-                    key={e.id}
-                    gap="sm"
-                    p="xs"
-                    style={{
-                      borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-gray-0)',
-                    }}
-                  >
-                    <Box style={{ flex: 1 }}>
-                      {e.note && (
-                        <Text size="sm" fw={600}>
-                          {e.note}
-                        </Text>
-                      )}
-                      <Text size="xs" c="dimmed">
-                        {formatDateShort(e.logged_at)}
-                      </Text>
-                    </Box>
-                    <Text size="sm" fw={700}>
-                      {formatMoneyWhole(e.amount)}
-                    </Text>
-                    <ActionIcon
-                      variant="subtle"
-                      size="xs"
-                      onClick={() => setEditExpense(e)}
-                    >
-                      <PencilSimple size={12} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="xs"
-                      onClick={() => setConfirmId(e.id)}
-                    >
-                      <Trash size={12} />
-                    </ActionIcon>
-                  </Group>
-                )
-              })}
-            </Stack>
-          </Paper>
-        )
-      })}
+          )
+        })}
+      </Stack>
 
       {/* Edit modal */}
       {editExpense && (
         <ExpenseEditModal
           expense={editExpense}
-          onSave={async (data) => {
+          onSave={async (_data) => {
             // update in store
             // update in db
             setEditExpense(null)

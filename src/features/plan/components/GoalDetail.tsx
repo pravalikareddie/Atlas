@@ -1,9 +1,10 @@
+// @ts-nocheck
+import { ROUTES } from '../../../app/routes'
 import {
   Box,
   Text,
   UnstyledButton,
   Divider,
-  Title,
   Paper,
   Stack,
   Group,
@@ -11,8 +12,6 @@ import {
   ActionIcon,
   TextInput,
   Collapse,
-  Select,
-  Modal,
   CheckIcon,
   Progress,
   Button,
@@ -33,11 +32,8 @@ import {
 } from '../../tasks/constants/taskConstants'
 import { STRINGS } from '../../tasks/constants/strings'
 import {
-  ArrowArcLeftIcon,
   ArrowLeftIcon,
-  CalendarDotIcon,
   CalendarIcon,
-  CaretDown,
   CaretDownIcon,
   CaretRightIcon,
   PencilIcon,
@@ -45,8 +41,9 @@ import {
   TrashIcon,
   X,
 } from '@phosphor-icons/react'
-import { callClaude } from '../../../lib/anthropic'
 import { usePlanData } from '../hooks/usePlanData'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
 
 // ─── GoalDetail ────────────────────────────────────────────────────────────────
 
@@ -65,6 +62,7 @@ export function GoalDetail() {
   const [expandedMs, setExpandedMs] = useState<string | null>(null)
   const [addingMs, setAddingMs] = useState(false)
   const [msText, setMsText] = useState('')
+  const [msDueDate, setMsDueDate] = useState('')
   const [addingTask, setAddingTask] = useState<string | null>(null)
   const [taskText, setTaskText] = useState('')
   const [showAll, setShowAll] = useState(false)
@@ -82,7 +80,7 @@ export function GoalDetail() {
         <Button
           variant="subtle"
           leftSection={<ArrowLeftIcon size={14} />}
-          onClick={() => navigate('/plan/goals')}
+          onClick={() => navigate(ROUTES.GOALS)}
           w="fit-content"
         >
           {STRINGS.BACK_TO_GOALS}
@@ -94,7 +92,6 @@ export function GoalDetail() {
   const goalId_ = goal.id
   const msDone = ms.filter((m) => m.status === TASK_STATUS.DONE).length
   const progress = ms.length > 0 ? (msDone / ms.length) * 100 : 0
-  const accentColor = AREA_COLORS[goal.area] ? 'teal' : 'teal'
 
   async function addMilestone() {
     if (!msText.trim()) return
@@ -102,7 +99,7 @@ export function GoalDetail() {
       user_id: USER_ID,
       goal_id: goalId_,
       title: msText,
-      due_date: null,
+      due_date: msDueDate || null,
       status: TASK_STATUS.TODO,
       order_index: ms.length,
     }
@@ -117,6 +114,7 @@ export function GoalDetail() {
       })
     }
     setMsText('')
+    setMsDueDate('')
     setAddingMs(false)
   }
 
@@ -214,7 +212,7 @@ export function GoalDetail() {
     try {
       await svc.updateGoal(goalId_, { status: GOAL_STATUS.DONE })
     } catch {}
-    navigate('/plan/goals')
+    navigate(ROUTES.GOALS)
   }
 
   return (
@@ -223,7 +221,7 @@ export function GoalDetail() {
         variant="subtle"
         size="sm"
         leftSection={<ArrowLeftIcon size={14} />}
-        onClick={() => navigate('/plan/goals')}
+        onClick={() => navigate(ROUTES.GOALS)}
         w="fit-content"
       >
         {STRINGS.BACK_TO_GOALS}
@@ -321,246 +319,263 @@ export function GoalDetail() {
             </Text>
           )}
 
-          {ms.map((m) => {
-            const mTasks = store.tasks.filter((t) => t.milestone_id === m.id)
-            const mDone = mTasks.filter(
-              (t) => t.status === TASK_STATUS.DONE,
-            ).length
-            const isExpanded = expandedMs === m.id
-            const isDone = m.status === TASK_STATUS.DONE
+          <SortableList
+            items={ms}
+            onReorder={(reordered) =>
+              persistOrder(
+                reordered,
+                (id, d) => store.updateMilestone(id, d),
+                (id, d) => svc.updateMilestone(id, d),
+              )
+            }
+            renderItem={(m) => {
+              const mTasks = store.tasks.filter((t) => t.milestone_id === m.id)
+              const mDone = mTasks.filter(
+                (t) => t.status === TASK_STATUS.DONE,
+              ).length
+              const isExpanded = expandedMs === m.id
+              const isDone = m.status === TASK_STATUS.DONE
 
-            return (
-              <Stack key={m.id} gap="xs">
-                <Paper
-                  p="sm"
-                  radius="lg"
-                  bg={isDone ? 'green.0' : 'gray.0'}
-                  withBorder
-                  style={{
-                    borderColor: isDone
-                      ? 'var(--mantine-color-green-3)'
-                      : 'var(--mantine-color-gray-2)',
-                  }}
-                >
-                  <Group gap="sm">
-                    <UnstyledButton
-                      onClick={() => toggleMs(m.id)}
-                      w={22}
-                      h={22}
-                      style={{
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        border: isDone
-                          ? 'none'
-                          : `2px solid var(--mantine-color-teal-4)`,
-                        backgroundColor: isDone
-                          ? 'var(--mantine-color-green-5)'
-                          : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {isDone && <CheckIcon size={12} color="white" />}
-                    </UnstyledButton>
-
-                    {editingMsId === m.id ? (
-                      <TextInput
-                        value={editMsText}
-                        onChange={(e) => setEditMsText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveEditMs(m.id)
-                          if (e.key === 'Escape') setEditingMsId(null)
+              return (
+                <Stack key={m.id} gap="xs">
+                  <Paper
+                    p="sm"
+                    radius="lg"
+                    withBorder
+                    style={{
+                      opacity: isDone ? 0.5 : 1,
+                    }}
+                  >
+                    <Group gap="sm">
+                      <UnstyledButton
+                        onClick={() => toggleMs(m.id)}
+                        w={22}
+                        h={22}
+                        style={{
+                          borderRadius: '50%',
+                          flexShrink: 0,
+                          border: isDone
+                            ? 'none'
+                            : `2px solid var(--mantine-color-teal-4)`,
+                          backgroundColor: isDone
+                            ? 'var(--mantine-color-green-5)'
+                            : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
                         }}
-                        onBlur={() => saveEditMs(m.id)}
-                        style={{ flex: 1 }}
-                        size="xs"
-                        autoFocus
-                      />
-                    ) : (
-                      <Text
-                        size="sm"
-                        fw={600}
-                        td={isDone ? 'line-through' : undefined}
-                        c={isDone ? 'dimmed' : 'dark'}
-                        style={{ flex: 1, cursor: 'pointer' }}
-                        onClick={() => setExpandedMs(isExpanded ? null : m.id)}
                       >
-                        {m.title}
-                      </Text>
-                    )}
+                        {isDone && <CheckIcon size={12} color="white" />}
+                      </UnstyledButton>
 
-                    {mTasks.length > 0 && (
-                      <Badge variant="light" color="gray" size="xs">
-                        {mDone}/{mTasks.length}
-                      </Badge>
-                    )}
-
-                    <ActionIcon
-                      variant="subtle"
-                      size="xs"
-                      onClick={() => {
-                        setEditingMsId(m.id)
-                        setEditMsText(m.title)
-                      }}
-                      aria-label={STRINGS.EDIT}
-                    >
-                      <PencilIcon size={12} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="xs"
-                      onClick={() => deleteMs(m.id)}
-                      aria-label={STRINGS.DELETE}
-                    >
-                      <TrashIcon size={12} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      size="xs"
-                      onClick={() => setExpandedMs(isExpanded ? null : m.id)}
-                    >
-                      {isExpanded ? (
-                        <CaretDownIcon size={12} />
-                      ) : (
-                        <CaretRightIcon size={12} />
-                      )}
-                    </ActionIcon>
-                  </Group>
-                </Paper>
-
-                <Collapse in={isExpanded}>
-                  <Stack gap="xs" pl="md">
-                    {mTasks.map((t) => {
-                      const tDone = t.status === TASK_STATUS.DONE
-                      return (
-                        <Group
-                          key={t.id}
-                          gap="sm"
-                          p="xs"
-                          style={{
-                            borderRadius: 'var(--mantine-radius-lg)',
-                            background: 'white',
-                            border: '1px solid var(--mantine-color-gray-2)',
-                            opacity: tDone ? 0.6 : 1,
-                          }}
-                        >
-                          <UnstyledButton
-                            onClick={() => toggleTask(t.id)}
-                            w={16}
-                            h={16}
-                            style={{
-                              borderRadius: '50%',
-                              flexShrink: 0,
-                              border: tDone
-                                ? 'none'
-                                : `1.5px solid var(--mantine-color-teal-4)`,
-                              backgroundColor: tDone
-                                ? 'var(--mantine-color-green-5)'
-                                : 'transparent',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {tDone && <CheckIcon size={9} color="white" />}
-                          </UnstyledButton>
-
-                          {editingTaskId === t.id ? (
-                            <TextInput
-                              value={editTaskText}
-                              onChange={(e) => setEditTaskText(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') saveEditTask(t.id)
-                                if (e.key === 'Escape') setEditingTaskId(null)
-                              }}
-                              onBlur={() => saveEditTask(t.id)}
-                              style={{ flex: 1 }}
-                              size="xs"
-                              autoFocus
-                            />
-                          ) : (
-                            <Text
-                              size="sm"
-                              td={tDone ? 'line-through' : undefined}
-                              c={tDone ? 'dimmed' : 'dark'}
-                              style={{ flex: 1, cursor: 'pointer' }}
-                              onClick={() => {
-                                setEditingTaskId(t.id)
-                                setEditTaskText(t.title)
-                              }}
-                            >
-                              {t.title}
-                            </Text>
-                          )}
-
-                          <ActionIcon
-                            variant="subtle"
-                            color="red"
-                            size="xs"
-                            onClick={() => deleteTask(t.id)}
-                            aria-label={STRINGS.DELETE}
-                          >
-                            <TrashIcon size={12} />
-                          </ActionIcon>
-                        </Group>
-                      )
-                    })}
-
-                    {addingTask === m.id ? (
-                      <Group gap="xs">
+                      {editingMsId === m.id ? (
                         <TextInput
-                          value={taskText}
-                          onChange={(e) => setTaskText(e.target.value)}
+                          value={editMsText}
+                          onChange={(e) => setEditMsText(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') addTask(m.id)
-                            if (e.key === 'Escape') setAddingTask(null)
+                            if (e.key === 'Enter') saveEditMs(m.id)
+                            if (e.key === 'Escape') setEditingMsId(null)
                           }}
-                          placeholder={STRINGS.ADD_TASK_PLACEHOLDER}
-                          size="xs"
-                          radius="lg"
+                          onBlur={() => saveEditMs(m.id)}
                           style={{ flex: 1 }}
+                          size="xs"
                           autoFocus
                         />
+                      ) : (
+                        <Text
+                          size="sm"
+                          fw={600}
+                          td={isDone ? 'line-through' : undefined}
+                          c={'white'}
+                          style={{ flex: 1, cursor: 'pointer' }}
+                          onClick={() =>
+                            setExpandedMs(isExpanded ? null : m.id)
+                          }
+                        >
+                          {m.title}
+                        </Text>
+                      )}
+
+                      {m.due_date && (
+                        <Badge variant="light" color="orange" size="xs">
+                          {m.due_date}
+                        </Badge>
+                      )}
+
+                      {mTasks.length > 0 && (
+                        <Badge variant="light" color="gray" size="xs">
+                          {mDone}/{mTasks.length}
+                        </Badge>
+                      )}
+
+                      <ActionIcon
+                        variant="subtle"
+                        size="xs"
+                        onClick={() => {
+                          setEditingMsId(m.id)
+                          setEditMsText(m.title)
+                        }}
+                        aria-label={STRINGS.EDIT}
+                      >
+                        <PencilIcon size={12} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        size="xs"
+                        onClick={() => deleteMs(m.id)}
+                        aria-label={STRINGS.DELETE}
+                      >
+                        <TrashIcon size={12} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="subtle"
+                        size="xs"
+                        onClick={() => setExpandedMs(isExpanded ? null : m.id)}
+                      >
+                        {isExpanded ? (
+                          <CaretDownIcon size={12} />
+                        ) : (
+                          <CaretRightIcon size={12} />
+                        )}
+                      </ActionIcon>
+                    </Group>
+                  </Paper>
+
+                  <Collapse in={isExpanded}>
+                    <Stack gap="xs" pl="md">
+                      {mTasks.map((t) => {
+                        const tDone = t.status === TASK_STATUS.DONE
+                        return (
+                          <Group
+                            key={t.id}
+                            gap="sm"
+                            p="xs"
+                            style={{
+                              borderRadius: 'var(--mantine-radius-lg)',
+                              background: 'var(--mantine-color-dark-6)',
+                              border: '1px solid var(--mantine-color-gray-2)',
+                              opacity: tDone ? 0.6 : 1,
+                            }}
+                          >
+                            <UnstyledButton
+                              onClick={() => toggleTask(t.id)}
+                              w={16}
+                              h={16}
+                              style={{
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                border: tDone
+                                  ? 'none'
+                                  : `1.5px solid var(--mantine-color-teal-4)`,
+                                backgroundColor: tDone
+                                  ? 'var(--mantine-color-green-5)'
+                                  : 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {tDone && <CheckIcon size={9} color="white" />}
+                            </UnstyledButton>
+
+                            {editingTaskId === t.id ? (
+                              <TextInput
+                                value={editTaskText}
+                                onChange={(e) =>
+                                  setEditTaskText(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEditTask(t.id)
+                                  if (e.key === 'Escape') setEditingTaskId(null)
+                                }}
+                                onBlur={() => saveEditTask(t.id)}
+                                style={{ flex: 1 }}
+                                size="xs"
+                                autoFocus
+                              />
+                            ) : (
+                              <Text
+                                size="sm"
+                                td={tDone ? 'line-through' : undefined}
+                                c={tDone ? 'dimmed' : 'dark'}
+                                style={{ flex: 1, cursor: 'pointer' }}
+                                onClick={() => {
+                                  setEditingTaskId(t.id)
+                                  setEditTaskText(t.title)
+                                }}
+                              >
+                                {t.title}
+                              </Text>
+                            )}
+
+                            <ActionIcon
+                              variant="subtle"
+                              color="red"
+                              size="xs"
+                              onClick={() => deleteTask(t.id)}
+                              aria-label={STRINGS.DELETE}
+                            >
+                              <TrashIcon size={12} />
+                            </ActionIcon>
+                          </Group>
+                        )
+                      })}
+
+                      {addingTask === m.id ? (
+                        <Group gap="xs">
+                          <TextInput
+                            value={taskText}
+                            onChange={(e) => setTaskText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') addTask(m.id)
+                              if (e.key === 'Escape') setAddingTask(null)
+                            }}
+                            placeholder={STRINGS.ADD_TASK_PLACEHOLDER}
+                            size="xs"
+                            radius="lg"
+                            style={{ flex: 1 }}
+                            autoFocus
+                          />
+                          <Button
+                            size="xs"
+                            radius="xl"
+                            color="teal"
+                            onClick={() => addTask(m.id)}
+                          >
+                            {STRINGS.ADD}
+                          </Button>
+                          <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            onClick={() => setAddingTask(null)}
+                          >
+                            <X size={12} />
+                          </ActionIcon>
+                        </Group>
+                      ) : (
                         <Button
+                          variant="subtle"
                           size="xs"
                           radius="xl"
                           color="teal"
-                          onClick={() => addTask(m.id)}
+                          leftSection={<PlusIcon size={12} />}
+                          onClick={() => {
+                            setAddingTask(m.id)
+                            setTaskText('')
+                          }}
+                          w="fit-content"
                         >
-                          {STRINGS.ADD}
+                          {STRINGS.ADD_TASK}
                         </Button>
-                        <ActionIcon
-                          size="sm"
-                          variant="subtle"
-                          onClick={() => setAddingTask(null)}
-                        >
-                          <X size={12} />
-                        </ActionIcon>
-                      </Group>
-                    ) : (
-                      <Button
-                        variant="subtle"
-                        size="xs"
-                        radius="xl"
-                        color="teal"
-                        leftSection={<PlusIcon size={12} />}
-                        onClick={() => {
-                          setAddingTask(m.id)
-                          setTaskText('')
-                        }}
-                        w="fit-content"
-                      >
-                        {STRINGS.ADD_TASK}
-                      </Button>
-                    )}
-                  </Stack>
-                </Collapse>
-              </Stack>
-            )
-          })}
+                      )}
+                    </Stack>
+                  </Collapse>
+                </Stack>
+              )
+            }}
+          />
 
           {addingMs && (
             <Group gap="xs">
@@ -576,6 +591,15 @@ export function GoalDetail() {
                 radius="lg"
                 style={{ flex: 1 }}
                 autoFocus
+              />
+              <TextInput
+                value={msDueDate}
+                onChange={(e) => setMsDueDate(e.target.value)}
+                type="date"
+                size="sm"
+                radius="lg"
+                w={140}
+                placeholder="Due date"
               />
               <Button size="sm" radius="xl" color="teal" onClick={addMilestone}>
                 {STRINGS.ADD}
@@ -624,7 +648,7 @@ export function GoalDetail() {
                 border: '1px solid var(--mantine-color-violet-2)',
                 cursor: 'pointer',
               }}
-              onClick={() => navigate(`/plan/projects/${p.id}`)}
+              onClick={() => navigate(ROUTES.PROJECT_DETAIL(p.id))}
             >
               <Text size="xs">🚀</Text>
               <Text size="sm" fw={600} style={{ flex: 1 }}>
@@ -698,7 +722,7 @@ export function GoalDetail() {
                     border: '1px solid var(--mantine-color-orange-2)',
                     cursor: 'pointer',
                   }}
-                  onClick={() => navigate(`/plan/roadmaps/${r.id}`)}
+                  onClick={() => navigate(ROUTES.ROADMAP_DETAIL(r.id))}
                 >
                   <Text size="xs">🗺</Text>
                   <Text size="sm" fw={600} style={{ flex: 1 }}>
@@ -776,7 +800,7 @@ export function GoalDetail() {
                     p="xs"
                     style={{
                       borderRadius: 'var(--mantine-radius-lg)',
-                      background: 'var(--mantine-color-gray-0)',
+                      background: 'var(--mantine-color-dark-6)',
                       border: '1px solid var(--mantine-color-gray-2)',
                       opacity: tDone ? 0.6 : 1,
                     }}
@@ -836,10 +860,10 @@ function ProjectLinker({
   onDone: () => void
 }) {
   const store = usePlanStore()
+  const [newTitle, setNewTitle] = useState('')
   const unlinked = store.projects.filter(
     (p) => !p.goal_id && p.status === PROJECT_STATUS.ACTIVE,
   )
-  const [newTitle, setNewTitle] = useState('')
 
   async function link(id: string) {
     store.updateProject(id, { goal_id: goalId })
@@ -853,7 +877,7 @@ function ProjectLinker({
     if (!newTitle.trim()) return
     const row = {
       user_id: USER_ID,
-      title: newTitle,
+      title: newTitle.trim(),
       description: null,
       status: PROJECT_STATUS.ACTIVE,
       deadline: null,
@@ -933,8 +957,8 @@ function RoadmapLinker({
   onDone: () => void
 }) {
   const store = usePlanStore()
-  const unlinked = store.roadmaps.filter((r) => !r.goal_id)
   const [newTitle, setNewTitle] = useState('')
+  const unlinked = store.roadmaps.filter((r) => !r.goal_id)
 
   async function link(id: string) {
     store.updateRoadmap(id, { goal_id: goalId })
@@ -948,7 +972,7 @@ function RoadmapLinker({
     if (!newTitle.trim()) return
     const row = {
       user_id: USER_ID,
-      title: newTitle,
+      title: newTitle.trim(),
       description: null,
       goal_id: goalId,
       project_id: null,

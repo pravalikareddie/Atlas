@@ -12,9 +12,8 @@ import {
   Badge,
 } from '@mantine/core'
 import { Task } from '../types/task.types'
-import { TypeBadge } from './TaskParts'
+import { TypeBadge } from './TypeBadge'
 import {
-  ClockIcon,
   DotsThree,
   ListChecks,
   PencilIcon,
@@ -25,9 +24,9 @@ import {
   DATE_FORMAT,
   PRIORITY,
   PRIORITY_LABEL,
-  TASK_TYPE,
   TYPE_COLOR,
 } from '../constants/taskConstants'
+import { RADIUS_PILL } from '../../../shared/constants/styles'
 
 interface Props {
   task: Task
@@ -36,6 +35,7 @@ interface Props {
   onDone: () => void
   onTap: () => void
   onDelete: () => void
+  onToggleToday?: () => void
 }
 export function TaskListRow({
   task,
@@ -44,19 +44,19 @@ export function TaskListRow({
   onDone,
   onTap,
   onDelete,
+  onToggleToday,
 }: Props) {
   const isOverdue =
     task.due_date != null &&
     isBefore(parseISO(task.due_date), startOfDay(new Date()))
-  const isEvent = task.type === TASK_TYPE.EVENT
   const accentColor = TYPE_COLOR[task.type] ?? 'teal'
 
   return (
     <Paper
-      p="sm"
+      p="md"
       radius="xl"
       withBorder
-      bg={selected ? `${accentColor}.0` : 'white'}
+      bg={selected ? `${accentColor}.9` : undefined}
       style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
       onClick={onTap}
     >
@@ -65,7 +65,7 @@ export function TaskListRow({
           w={4}
           style={{
             alignSelf: 'stretch',
-            borderRadius: 9999,
+            borderRadius: RADIUS_PILL,
             backgroundColor: `var(--mantine-color-${accentColor}-5)`,
             flexShrink: 0,
             minHeight: 20,
@@ -119,16 +119,6 @@ export function TaskListRow({
             <Text size="xs" title={STRINGS.RECURRING}>
               🔄
             </Text>
-          )}
-
-          {isEvent && task.event_time && (
-            <Badge
-              color={accentColor}
-              size="xs"
-              leftSection={<ClockIcon size={10} />}
-            >
-              {task.event_time.slice(0, 5)}
-            </Badge>
           )}
 
           {task.due_date && (
@@ -187,6 +177,11 @@ export function TaskListRow({
               <Menu.Item leftSection={<CheckIcon size={14} />} onClick={onDone}>
                 {STRINGS.MARK_DONE}
               </Menu.Item>
+              {onToggleToday && (
+                <Menu.Item onClick={onToggleToday}>
+                  {task.do_today ? `☀️ ${STRINGS.REMOVE_FROM_TODAY}` : `☀️ ${STRINGS.ADD_TO_TODAY}`}
+                </Menu.Item>
+              )}
               <Menu.Item
                 leftSection={<ListChecks size={14} />}
                 onClick={onToggleSelect}

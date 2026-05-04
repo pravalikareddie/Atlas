@@ -5,9 +5,5 @@ interface Props {
 }
 
 export function SectionLabel({ children }: Props) {
-  return (
-    <Text tt="uppercase" mb="sm">
-      {children}
-    </Text>
-  )
+  return <Text mb="sm">{children}</Text>
 }

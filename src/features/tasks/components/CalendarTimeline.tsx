@@ -1,11 +1,26 @@
 import { STRINGS } from '../constants/strings'
 import { format, isValid, parse, subMinutes } from 'date-fns'
-import { Paper, Stack, Group, Text, Box, Badge } from '@mantine/core'
-import { Task } from '../types/task.types'
-import { CaretRightIcon } from '@phosphor-icons/react'
+import {
+  Paper,
+  Stack,
+  Group,
+  Text,
+  Box,
+  Badge,
+  ActionIcon,
+} from '@mantine/core'
+import { Meeting } from '../../meetings/types/meeting.types'
+import { Plus } from '@phosphor-icons/react'
+import { DATE_FORMAT } from '../constants/taskConstants'
+import { CardShell } from '../../../shared/components/CardShell'
+import { TaskCheckbox } from '../../../shared/components/TaskCheckbox'
+import { COLORS } from '../../../shared/constants/styles'
+
 interface Props {
-  events: Task[]
-  onTap: (t: Task) => void
+  meetings: Meeting[]
+  onTap: (m: Meeting) => void
+  onDone?: (m: Meeting) => void
+  onAdd?: () => void
 }
 
 function formatEventTime(time: string): string {
@@ -19,105 +34,109 @@ function formatEventTime(time: string): string {
   }
 }
 
-export function CalendarTimeline({ events, onTap }: Props) {
+export function CalendarTimeline({ meetings, onTap, onDone, onAdd }: Props) {
   const now = format(new Date(), 'HH:mm')
+  const today = format(new Date(), DATE_FORMAT.API)
 
   return (
-    <Paper p="lg" radius="xl" withBorder>
-      <Group justify="space-between" mb="md">
-        <Group gap="xs">
-          <Text size="xs" fw={700} tt="uppercase">
-            {STRINGS.CALENDAR}
+    <CardShell
+      label={STRINGS.CALENDAR}
+      gradient="linear-gradient(135deg, var(--mantine-color-blue-7), var(--mantine-color-violet-6))"
+      count={meetings.length > 0 ? meetings.length : undefined}
+      countColor="blue"
+      right={
+        <Group gap="md">
+          <Text
+            size="xs"
+            fw={500}
+            c="white"
+            ff="var(--mantine-font-family-monospace)"
+          >
+            {format(new Date(), 'h:mm a')}
           </Text>
-          {events.length > 0 && (
-            <Badge variant="light" color="teal" size="xs">
-              {events.length}
-            </Badge>
+          {onAdd && (
+            <ActionIcon
+              variant="transparent"
+              size="sm"
+              onClick={onAdd}
+              style={{
+                border: `1.5px solid ${COLORS.WHITE_20}`,
+                color: COLORS.WHITE_50,
+              }}
+            >
+              <Plus size={12} />
+            </ActionIcon>
           )}
         </Group>
-        <Text size="xs" fw={600} ff="monospace">
-          {format(new Date(), 'h:mm a')}
-        </Text>
-      </Group>
-
-      {events.length > 0 ? (
+      }
+    >
+      {meetings.length > 0 ? (
         <Stack gap="xs">
-          {events.map((ev) => {
-            const isPast = ev.event_time != null && ev.event_time < now
+          {meetings.map((m) => {
             const isNow =
-              ev.event_time != null &&
-              ev.event_time <= now &&
-              ev.event_time >=
-                format(subMinutes(new Date(), ev.event_duration ?? 30), 'HH:mm')
-            const duration = ev.event_duration ?? 30
-            const barWidth = Math.min(Math.max((duration / 60) * 180, 40), 260)
+              m.event_time != null &&
+              m.event_time <= now &&
+              m.event_time >=
+                format(
+                  subMinutes(new Date(), m.event_duration ?? 30),
+                  'HH:mm',
+                )
+            const duration = m.event_duration ?? 30
+            const isDone = m.last_done === today
 
             return (
               <Paper
-                key={ev.id}
+                key={m.id}
                 p="sm"
-                radius="lg"
+                radius="md"
                 withBorder
-                onClick={() => onTap(ev)}
+                onClick={() => onTap(m)}
                 style={{
                   cursor: 'pointer',
-                  opacity: isPast ? 0.5 : 1,
+                  opacity: isDone ? 0.5 : 1,
                   borderColor: isNow
                     ? 'var(--mantine-color-teal-4)'
-                    : 'var(--mantine-color-default-border)',
+                    : undefined,
                   transition: 'all 0.15s ease',
                 }}
               >
                 <Group gap="md" wrap="nowrap">
+                  <TaskCheckbox
+                    done={isDone}
+                    onToggle={() => onDone?.(m)}
+                    size={22}
+                  />
                   <Text
-                    ff="monospace"
-                    size="sm"
-                    fw={700}
-                    c={isNow ? 'teal' : 'var(--mantine-color-text)'}
-                    w={60}
-                    style={{ flexShrink: 0 }}
+                    ff="var(--mantine-font-family-monospace)"
+                    size="xs"
+                    fw={600}
+                    w={48}
+                    style={{ flexShrink: 0, lineHeight: 1.2 }}
                   >
-                    {ev.event_time ? formatEventTime(ev.event_time) : '—'}
+                    {m.event_time ? formatEventTime(m.event_time) : '—'}
                   </Text>
-
-                  <Box style={{ flexShrink: 0 }}>
-                    <Box
-                      h={6}
-                      style={{
-                        borderRadius: 9999,
-                        width: barWidth,
-                        background: isNow
-                          ? 'linear-gradient(90deg, var(--mantine-color-teal-5), var(--mantine-color-blue-4))'
-                          : 'var(--mantine-color-teal-light-color)',
-                      }}
-                    />
-                  </Box>
-
+                  <Box
+                    w={3}
+                    h={32}
+                    style={{
+                      borderRadius: 2,
+                      flexShrink: 0,
+                      background:
+                        'linear-gradient(180deg, var(--mantine-color-teal-5), var(--mantine-color-blue-4))',
+                    }}
+                  />
                   <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Group gap="xs" mt={2}>
-                      <Text
-                        size="sm"
-                        fw={700}
-                        truncate
-                        c="var(--mantine-color-text)"
-                      >
-                        {ev.title}
-                      </Text>
-                      {ev.is_must && (
-                        <Badge variant="urgent">{STRINGS.MUST}</Badge>
-                      )}
-                    </Group>
-                    <Text size="xs" fw={500}>
-                      {duration}m
+                    <Text size="sm" fw={600} truncate>
+                      {m.title}
                     </Text>
+                    <Text size="xs">{duration} min</Text>
                     {isNow && (
-                      <Badge variant="light" color="teal" size="xs">
+                      <Badge variant="light" color="teal" size="xs" mt={2}>
                         {STRINGS.HAPPENING_NOW}
                       </Badge>
                     )}
                   </Box>
-
-                  <CaretRightIcon size={14} />
+                  <Text size="sm">›</Text>
                 </Group>
               </Paper>
             )
@@ -131,6 +150,6 @@ export function CalendarTimeline({ events, onTap }: Props) {
           </Text>
         </Group>
       )}
-    </Paper>
+    </CardShell>
   )
 }

@@ -67,6 +67,7 @@ export interface Account {
   last_four: string | null
   label: string | null
   due_date: number | null
+  order_index?: number
   created_at: string
 }
 
@@ -78,6 +79,7 @@ export interface FinanceTodo {
   amount: number | null
   status: 'todo' | 'done'
   completed_at: string | null
+  order_index?: number
   created_at: string
 }
 
@@ -106,5 +108,4 @@ export interface CategoryInfo {
   key: string
   label: string
   emoji: string
-  group: BudgetGroup
 }

@@ -19,10 +19,12 @@ interface PlanState {
   items: PlanRoadmapItem[]
   mantra: string | null
   loading: boolean
+  loaded: boolean
 
   setGoals: (g: Goal[]) => void
   addGoal: (g: Goal) => void
   updateGoal: (id: string, u: Partial<Goal>) => void
+  removeGoal: (id: string) => void
   setMilestones: (m: Milestone[]) => void
   addMilestone: (m: Milestone) => void
   updateMilestone: (id: string, u: Partial<Milestone>) => void
@@ -49,6 +51,7 @@ interface PlanState {
   removeItem: (id: string) => void
   setMantra: (m: string | null) => void
   setLoading: (l: boolean) => void
+  setLoaded: () => void
 }
 
 export const usePlanStore = create<PlanState>((set) => ({
@@ -61,6 +64,7 @@ export const usePlanStore = create<PlanState>((set) => ({
   items: [],
   mantra: null,
   loading: false,
+  loaded: false,
 
   setGoals: (goals) => set({ goals }),
   addGoal: (g) => set((s) => ({ goals: [...s.goals, g] })),
@@ -68,6 +72,8 @@ export const usePlanStore = create<PlanState>((set) => ({
     set((s) => ({
       goals: s.goals.map((g) => (g.id === id ? { ...g, ...u } : g)),
     })),
+  removeGoal: (id) =>
+    set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
 
   setMilestones: (milestones) => set({ milestones }),
   addMilestone: (m) => set((s) => ({ milestones: [...s.milestones, m] })),
@@ -127,4 +133,5 @@ export const usePlanStore = create<PlanState>((set) => ({
 
   setMantra: (mantra) => set({ mantra }),
   setLoading: (loading) => set({ loading }),
+  setLoaded: () => set({ loaded: true }),
 }))

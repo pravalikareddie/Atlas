@@ -17,9 +17,9 @@ import {
   UnstyledButton,
   Collapse,
   Modal,
+  Button,
 } from '@mantine/core'
-import { Button } from '@mantine/core'
-import { Task, TaskType, CadenceType, TaskPriority } from '../types/task.types'
+import { TaskType, CadenceType, TaskPriority } from '../types/task.types'
 import {
   ADD_MODAL_TYPES,
   TYPE_LABEL,
@@ -32,7 +32,6 @@ import {
   GOAL_STATUS,
   PROJECT_STATUS,
   TASK_STATUS,
-  TASK_TYPE,
   LINK_KIND_LABEL,
   CADENCE_LABEL,
   PRIORITY_LABEL,
@@ -46,9 +45,8 @@ import {
   CaretUpIcon,
   X,
 } from '@phosphor-icons/react'
+import { UNSTYLED_INPUT_STYLES, COLORS } from '../../../shared/constants/styles'
 
-const DEFAULT_PRIORITY = PRIORITY.HIGH
-const DEFAULT_CADENCE = CADENCE.NONE
 const DEFAULT_DATE = () => format(new Date(), DATE_FORMAT.API)
 
 function getInitialState(defaultType: TaskType, defaultDate?: string) {
@@ -56,9 +54,8 @@ function getInitialState(defaultType: TaskType, defaultDate?: string) {
     title: '',
     type: defaultType,
     dueDate: defaultDate ?? DEFAULT_DATE(),
+    reminderTime: '' as string,
     priority: PRIORITY.HIGH as TaskPriority | null,
-    eventTime: '',
-    eventDuration: '',
     cadence: CADENCE.NONE as CadenceType,
     cadenceDays: [] as number[],
     isMust: false,
@@ -144,7 +141,6 @@ export function QuickAddModal({
   }, [state.linkQuery, goals, projects, milestones])
 
   const hasLink = !!(state.goalId || state.projectId || state.milestoneId)
-  const isEvent = state.type === TASK_TYPE.EVENT
   const accentColor = TYPE_COLOR[state.type] ?? 'teal'
 
   function reset() {
@@ -166,6 +162,7 @@ export function QuickAddModal({
       is_must: state.isMust,
       status: TASK_STATUS.TODO,
       due_date: state.dueDate || null,
+      reminder_time: state.reminderTime || null,
       do_today: state.dueDate === DEFAULT_DATE(),
       completed_at: null,
       goal_id: state.goalId,
@@ -176,14 +173,11 @@ export function QuickAddModal({
       parent_task_id: null,
       ticket_id: null,
       order_index: 0,
-      event_time: isEvent && state.eventTime ? state.eventTime : null,
-      event_duration:
-        isEvent && state.eventDuration ? parseInt(state.eventDuration) : null,
       cadence: state.cadence !== CADENCE.NONE ? state.cadence : null,
       cadence_days: state.cadence === CADENCE.WEEKLY ? state.cadenceDays : null,
       cadence_date: null,
       cadence_interval: null,
-      push_count: 0,
+      push_count: 0, sprint_id: null, blocked: false, blocked_note: null,
       is_learning: false,
     })
     reset()
@@ -217,7 +211,7 @@ export function QuickAddModal({
       padding={0}
       styles={{
         content: {
-          background: 'white',
+          background: 'var(--mantine-color-dark-6)',
           overflow: 'hidden',
           borderRadius: 'var(--mantine-radius-xl)',
         },
@@ -256,18 +250,7 @@ export function QuickAddModal({
           placeholder={STRINGS.WHAT_NEEDS_DONE}
           autoFocus
           variant="unstyled"
-          styles={{
-            input: {
-              color: 'white',
-              fontWeight: 600,
-              fontSize: 16,
-              background: 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 'var(--mantine-radius-lg)',
-              padding: '10px 14px',
-              '::placeholder': { color: 'rgba(255,255,255,0.6)' },
-            },
-          }}
+          styles={UNSTYLED_INPUT_STYLES}
         />
 
         {/* Quick toggles */}
@@ -275,14 +258,14 @@ export function QuickAddModal({
           <Badge
             variant={state.isMust ? 'filled' : 'outline'}
             color="white"
-            style={{ cursor: 'pointer', borderColor: 'rgba(255,255,255,0.5)' }}
+            style={{ cursor: 'pointer', borderColor: COLORS.WHITE_50 }}
             onClick={() => set('isMust', !state.isMust)}
           >
             {state.isMust ? '⚡ Must' : '+ Must'}
           </Badge>
           <Badge
             variant={state.dueDate === DEFAULT_DATE() ? 'filled' : 'outline'}
-            style={{ cursor: 'pointer', borderColor: 'rgba(255,255,255,0.5)' }}
+            style={{ cursor: 'pointer', borderColor: COLORS.WHITE_50 }}
           >
             📅{' '}
             {state.dueDate
@@ -293,7 +276,7 @@ export function QuickAddModal({
             <Badge
               variant="outline"
               color="white"
-              style={{ borderColor: 'rgba(255,255,255,0.5)' }}
+              style={{ borderColor: COLORS.WHITE_50 }}
             >
               {PRIORITY_LABEL[state.priority]}
             </Badge>
@@ -319,6 +302,7 @@ export function QuickAddModal({
             value={state.priority}
             onChange={(v) => set('priority', v as TaskPriority | null)}
             clearable
+            placeholder={STRINGS.NO_PRIORITY}
             data={PRIORITY_OPTIONS.map((p) => ({
               value: p,
               label: PRIORITY_LABEL[p],
@@ -335,6 +319,14 @@ export function QuickAddModal({
             onChange={(e) => set('dueDate', e.target.value)}
             radius="lg"
           />
+          <TextInput
+            label="Reminder"
+            type="time"
+            value={state.reminderTime}
+            onChange={(e) => set('reminderTime', e.target.value)}
+            radius="lg"
+            placeholder="HH:MM"
+          />
           <Select
             label={STRINGS.CADENCE}
             value={state.cadence}
@@ -346,26 +338,6 @@ export function QuickAddModal({
             radius="lg"
           />
         </Group>
-
-        {isEvent && (
-          <Group grow>
-            <TextInput
-              label={STRINGS.EVENT_TIME}
-              type="time"
-              value={state.eventTime}
-              onChange={(e) => set('eventTime', e.target.value)}
-              radius="lg"
-            />
-            <TextInput
-              label={STRINGS.EVENT_DURATION}
-              type="number"
-              value={state.eventDuration}
-              onChange={(e) => set('eventDuration', e.target.value)}
-              placeholder="60"
-              radius="lg"
-            />
-          </Group>
-        )}
 
         <Switch
           label={STRINGS.MUST_TODAY}

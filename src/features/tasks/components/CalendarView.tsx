@@ -21,12 +21,12 @@ import {
   Paper,
   UnstyledButton,
   Box,
+  Badge,
+  Button,
 } from '@mantine/core'
 import { Task } from '../types/task.types'
 import { sortTasks } from '../utils/taskUtils'
-import { TypeBadge } from './TaskParts'
-import { Badge } from '@mantine/core'
-import { Button } from '@mantine/core'
+import { TypeBadge } from './TypeBadge'
 
 interface Props {
   tasks: Task[]
@@ -49,13 +49,10 @@ export function CalendarView({ tasks, onDone, onTap, onAddForDay }: Props) {
   const startPad = startDow === 0 ? 6 : startDow - 1
 
   const taskCountByDay = useMemo(() => {
-    const map = new Map<string, { tasks: number; events: number }>()
+    const map = new Map<string, number>()
     tasks.forEach((t) => {
       if (!t.due_date) return
-      const entry = map.get(t.due_date) ?? { tasks: 0, events: 0 }
-      if (t.type === 'event') entry.events++
-      else entry.tasks++
-      map.set(t.due_date, entry)
+      map.set(t.due_date, (map.get(t.due_date) ?? 0) + 1)
     })
     return map
   }, [tasks])
@@ -88,7 +85,7 @@ export function CalendarView({ tasks, onDone, onTap, onAddForDay }: Props) {
         ))}
         {calDays.map((day) => {
           const ds = format(day, 'yyyy-MM-dd')
-          const counts = taskCountByDay.get(ds)
+          const count = taskCountByDay.get(ds)
           const isSelected = isSameDay(day, selectedDay)
           const isCurrentDay = isToday(day)
           const isPast = isBefore(day, startOfDay(new Date())) && !isCurrentDay
@@ -120,9 +117,9 @@ export function CalendarView({ tasks, onDone, onTap, onAddForDay }: Props) {
               >
                 {format(day, 'd')}
               </Text>
-              {counts && (
+              {count && (
                 <Group gap={2}>
-                  {Array.from({ length: Math.min(counts.tasks, 3) }).map(
+                  {Array.from({ length: Math.min(count, 5) }).map(
                     (_, i) => (
                       <Box
                         key={i}
@@ -131,19 +128,6 @@ export function CalendarView({ tasks, onDone, onTap, onAddForDay }: Props) {
                         style={{
                           borderRadius: '50%',
                           backgroundColor: 'var(--mantine-color-gray-6)',
-                        }}
-                      />
-                    ),
-                  )}
-                  {Array.from({ length: Math.min(counts.events, 2) }).map(
-                    (_, i) => (
-                      <Box
-                        key={`e${i}`}
-                        w={4}
-                        h={4}
-                        style={{
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--mantine-color-purple-5)',
                         }}
                       />
                     ),
@@ -157,28 +141,7 @@ export function CalendarView({ tasks, onDone, onTap, onAddForDay }: Props) {
 
       <Paper p="md" radius="md" withBorder>
         <Text mb="md">{format(selectedDay, 'EEEE, MMM d')}</Text>
-        {dayTasks
-          .filter((t) => t.type === 'event')
-          .map((ev) => (
-            <Group
-              key={ev.id}
-              gap="sm"
-              py={8}
-              style={{ cursor: 'pointer' }}
-              onClick={() => onTap(ev)}
-            >
-              <Text ff="monospace" w={44}>
-                {ev.event_time?.slice(0, 5)}
-              </Text>
-              <Text>
-                {ev.title} · {ev.event_duration}m
-              </Text>
-              <TypeBadge type="event" />
-            </Group>
-          ))}
-        {dayTasks
-          .filter((t) => t.type !== 'event')
-          .map((t) => (
+        {dayTasks.map((t) => (
             <Group key={t.id} gap="sm" py={8}>
               <UnstyledButton
                 onClick={() => onDone(t)}

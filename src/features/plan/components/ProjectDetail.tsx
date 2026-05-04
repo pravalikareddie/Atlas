@@ -1,13 +1,17 @@
-import { Box, Text, UnstyledButton, Title } from '@mantine/core'
+import { ROUTES } from '../../../app/routes'
+import { Box, Text, UnstyledButton, Title , Button } from '@mantine/core'
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePlanStore } from '../store/planStore'
 import { usePlanData } from '../hooks/usePlanData'
 import * as svc from '../services/planService'
-import { Button } from '@mantine/core'
 import { ProgressBar } from '../../../shared/components/ProgressBar'
 import { EmptyState } from '../../../shared/components/EmptyState'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
+import { STRINGS } from '../../tasks/constants/strings'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
+import { USER_ID } from '../../tasks/constants/taskConstants'
 
 export function ProjectDetail() {
   usePlanData()
@@ -31,7 +35,7 @@ export function ProjectDetail() {
   if (!project)
     return (
       <Box>
-        <UnstyledButton onClick={() => navigate('/plan/projects')}>
+        <UnstyledButton onClick={() => navigate(ROUTES.PROJECTS)}>
           ← back
         </UnstyledButton>
         <EmptyState message="Project not found" />
@@ -60,7 +64,7 @@ export function ProjectDetail() {
   async function addTask() {
     if (!taskText.trim()) return
     const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
+      user_id: USER_ID,
       title: taskText,
       notes: null,
       type: 'personal' as const,
@@ -122,7 +126,7 @@ export function ProjectDetail() {
   async function addSubtask(parentId: string) {
     if (!subText.trim()) return
     const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
+      user_id: USER_ID,
       title: subText,
       notes: null,
       type: 'personal' as const,
@@ -156,7 +160,7 @@ export function ProjectDetail() {
     try {
       await svc.updateProject(pid, { status: 'done' })
     } catch {}
-    navigate('/plan/projects')
+    navigate(ROUTES.PROJECTS)
   }
 
   async function pause() {
@@ -169,7 +173,7 @@ export function ProjectDetail() {
 
   return (
     <Box>
-      <UnstyledButton onClick={() => navigate('/plan/projects')}>
+      <UnstyledButton onClick={() => navigate(ROUTES.PROJECTS)}>
         ← back to projects
       </UnstyledButton>
 
@@ -185,7 +189,7 @@ export function ProjectDetail() {
         {goal && (
           <Text
             component="span"
-            onClick={() => navigate(`/plan/goals/${goal.id}`)}
+            onClick={() => navigate(ROUTES.GOAL_DETAIL(goal.id))}
           >
             🎯 {goal.title}
           </Text>
@@ -194,7 +198,7 @@ export function ProjectDetail() {
         {roadmap && (
           <Text
             component="span"
-            onClick={() => navigate(`/plan/roadmaps/${roadmap.id}`)}
+            onClick={() => navigate(ROUTES.ROADMAP_DETAIL(roadmap.id))}
           >
             🗺 {roadmap.title}
           </Text>
@@ -224,17 +228,17 @@ export function ProjectDetail() {
 
       {!pTasks.length && !addingTask && (
         <EmptyState
-          message="No tasks yet"
+          message={STRINGS.NO_TASKS_YET}
           sub="Break this project into actionable tasks."
         />
       )}
 
       <Box>
-        {pTasks.map((t) => {
+        <SortableList items={pTasks} onReorder={(reordered) => persistOrder(reordered, (id, d) => store.updateTask(id, d), (id, d) => svc.updateTask(id, d))} renderItem={(t) => {
           const subs = store.tasks.filter((s) => s.parent_task_id === t.id)
           const isExpanded = expandedTask === t.id
           return (
-            <Box key={t.id}>
+            <Box>
               <Box>
                 <UnstyledButton
                   onClick={() => toggleTask(t.id)}
@@ -311,7 +315,7 @@ export function ProjectDetail() {
                         if (e.key === 'Enter') addSubtask(t.id)
                         if (e.key === 'Escape') setExpandedTask(null)
                       }}
-                      placeholder="Add subtask..."
+                      placeholder={STRINGS.ADD_SUBTASK_PH}
                       autoFocus
                     />
                     <Button variant="ghost" onClick={() => addSubtask(t.id)}>
@@ -322,7 +326,7 @@ export function ProjectDetail() {
               )}
             </Box>
           )
-        })}
+        }} />
         {addingTask && (
           <Box>
             <input

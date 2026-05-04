@@ -1,5 +1,5 @@
-import { useMemo, useEffect, useRef } from 'react'
-import { format, isSameMonth } from 'date-fns'
+import { useMemo } from 'react'
+import { isSameMonth } from 'date-fns'
 import { useTaskStore } from '../../tasks/store/taskStore'
 import { useBudgetSummary } from '../../finance/hooks/useBudgetSummary'
 import { useHealthStore } from '../../health/store/healthStore'
@@ -10,18 +10,15 @@ import {
   TASK_TYPE,
   TASK_STATUS,
   PERSONAL_TYPES,
-  DATE_FORMAT,
-  USER_ID,
 } from '../../tasks/constants/taskConstants'
-import { upsertLifeScore } from '../../finance/services/lifeScoreService'
 import {
   TARGET,
   AREAS_META,
   getScoreColor,
   getScoreLabel,
-} from '../../../components/today/lifeScore.constants'
+} from '../../today/constants/lifeScore'
 import { DailyLog } from '../../health/types/health.types'
-import { HEALTH_SCALE, MONTHLY_HISTORY_MONTHS } from '../../../components/today'
+import { HEALTH_SCALE, MONTHLY_HISTORY_MONTHS } from '../../today'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -136,7 +133,6 @@ export function useLifeScore(): LifeScoreResult {
 
   // Stable date values — computed once per mount, not on every render
   const now = useMemo(() => new Date(), [])
-  const todayStr = useMemo(() => format(now, DATE_FORMAT.API), [now])
   const currentMonthPrefix = useMemo(
     () => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
     [now],
@@ -308,6 +304,8 @@ export function useLifeScore(): LifeScoreResult {
   ])
 
   // ─── Persist ──────────────────────────────────────────────────────────────
+  // Persist disabled — life_scores table needs schema update
+  /*
   const lastSavedRef = useRef<string>('')
 
   useEffect(() => {
@@ -328,8 +326,6 @@ export function useLifeScore(): LifeScoreResult {
     if (lastSavedRef.current === scoreKey) return
     lastSavedRef.current = scoreKey
 
-    upsertLifeScore({
-      user_id: USER_ID,
       date: todayStr,
       overall: result.overall,
       work: result.work.done,
@@ -342,6 +338,7 @@ export function useLifeScore(): LifeScoreResult {
       console.error('[useLifeScore] Failed to persist life score:', err)
     })
   }, [result, todayStr])
+  */
 
   return result
 }

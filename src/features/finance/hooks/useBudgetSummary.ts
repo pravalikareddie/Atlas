@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useFinanceStore } from '../store/financeStore'
-import { BUDGET_GROUPS } from '../constants/categories'
+import { BUDGET_CATEGORIES, INCOME_CATEGORY } from '../constants/categories'
 
 export interface BudgetRow {
   category: string
@@ -9,48 +9,74 @@ export interface BudgetRow {
   ratio: number
   overBudget: boolean
   goalMet: boolean
-  group: string
 }
 
 export function useBudgetSummary() {
   const { expenses, budgets, currentMonth } = useFinanceStore()
 
   return useMemo(() => {
-    const rows: BudgetRow[] = []
     const monthBudgets = budgets.filter((b) => b.month === currentMonth)
     const monthExpenses = expenses.filter((e) => e.month === currentMonth)
 
-    for (const group of BUDGET_GROUPS) {
-      for (const cat of group.categories) {
-        const budget = monthBudgets.find((b) => b.category === cat)
-        const budgetAmt = budget?.amount ?? 0
-        const spent = monthExpenses
-          .filter((e) => e.category === cat)
-          .reduce((s, e) => s + e.amount, 0)
-        if (budgetAmt > 0 || spent > 0) {
-          rows.push({
-            category: cat,
-            spent,
-            budget: budgetAmt,
-            ratio: budgetAmt > 0 ? spent / budgetAmt : 0,
-            overBudget: spent > budgetAmt && budgetAmt > 0,
-            goalMet:
-              group.key === 'GROWTH' && spent >= budgetAmt && budgetAmt > 0,
-            group: group.key,
-          })
-        }
+    // Separate income from spending
+    const totalIncome = monthExpenses
+      .filter((e) => e.category === INCOME_CATEGORY)
+      .reduce((s, e) => s + e.amount, 0)
+
+    const spendingExpenses = monthExpenses.filter(
+      (e) => e.category !== INCOME_CATEGORY,
+    )
+
+    const rows: BudgetRow[] = []
+
+    for (const cat of BUDGET_CATEGORIES) {
+      const budget = monthBudgets.find((b) => b.category === cat)
+      const budgetAmt = budget?.amount ?? 0
+      const spent = (cat === INCOME_CATEGORY ? monthExpenses : spendingExpenses)
+        .filter((e) => e.category === cat)
+        .reduce((s, e) => s + e.amount, 0)
+
+      if (budgetAmt > 0 || spent > 0) {
+        rows.push({
+          category: cat,
+          spent,
+          budget: budgetAmt,
+          ratio: budgetAmt > 0 ? spent / budgetAmt : (spent > 0 ? 1 : 0),
+          overBudget:
+            cat !== INCOME_CATEGORY && budgetAmt > 0 && spent > budgetAmt,
+          goalMet:
+            cat === INCOME_CATEGORY
+              ? spent >= budgetAmt && budgetAmt > 0 // hit income target
+              : (cat === 'savings' || cat === 'investing') &&
+                spent >= budgetAmt &&
+                budgetAmt > 0,
+        })
       }
     }
 
-    const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0)
-    const totalBudget = monthBudgets.reduce((s, b) => s + b.amount, 0)
-    const totalSaved = monthExpenses
-      .filter((e) => ['savings', 'investing'].includes(e.category))
+    const SAVINGS_CATEGORIES = ['savings', 'investing']
+    const totalSpent = spendingExpenses
+      .filter((e) => !SAVINGS_CATEGORIES.includes(e.category))
+      .reduce((s, e) => s + e.amount, 0)
+    const totalBudget = monthBudgets
+      .filter((b) => b.category !== INCOME_CATEGORY && !SAVINGS_CATEGORIES.includes(b.category))
+      .reduce((s, b) => s + b.amount, 0)
+    const totalSaved = spendingExpenses
+      .filter((e) => SAVINGS_CATEGORIES.includes(e.category))
       .reduce((s, e) => s + e.amount, 0)
     const savingsGoal = monthBudgets
       .filter((b) => ['savings', 'investing'].includes(b.category))
       .reduce((s, b) => s + b.amount, 0)
 
-    return { rows, totalSpent, totalBudget, totalSaved, savingsGoal }
+    rows.sort((a, b) => b.spent - a.spent)
+
+    return {
+      rows,
+      totalSpent,
+      totalBudget,
+      totalSaved,
+      savingsGoal,
+      totalIncome,
+    }
   }, [expenses, budgets, currentMonth])
 }

@@ -1,7 +1,8 @@
-import { Group, Text, UnstyledButton } from '@mantine/core'
+import { Group, Text } from '@mantine/core'
 import { Task } from '../types/task.types'
 import { formatAge, ageHours } from '../utils/taskUtils'
-import { AccentBar } from './TaskParts'
+import { AccentBar } from './AccentBar'
+import { TaskCheckbox } from '../../../shared/components/TaskCheckbox'
 
 interface Props {
   task: Task
@@ -17,16 +18,7 @@ export function FollowupRow({ task, onDone, onTap }: Props) {
   return (
     <Group gap="sm" py={10} px={8} style={{ borderRadius: 10 }}>
       <AccentBar color="amber" />
-      <UnstyledButton
-        onClick={onDone}
-        w={20}
-        h={20}
-        style={{
-          borderRadius: '50%',
-          border: '1px solid rgba(255,255,255,0.15)',
-          flexShrink: 0,
-        }}
-      />
+      <TaskCheckbox done={false} onToggle={onDone} color="gray" />
       <Text style={{ flex: 1, cursor: 'pointer' }} onClick={onTap}>
         {task.title}
       </Text>

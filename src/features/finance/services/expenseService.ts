@@ -25,6 +25,14 @@ export async function insertExpense(
   return data
 }
 
+export async function updateExpense(
+  id: string,
+  updates: Partial<Expense>,
+): Promise<void> {
+  const { error } = await supabase.from(TABLE).update(updates).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 export async function deleteExpense(id: string): Promise<void> {
   const { error } = await supabase.from(TABLE).delete().eq('id', id)
   if (error) throw new Error(error.message)

@@ -1,14 +1,231 @@
-import { Box, Text, UnstyledButton, Divider } from '@mantine/core'
+import {
+  Box,
+  Text,
+  UnstyledButton,
+  Divider,
+  Group,
+  Stack,
+  SimpleGrid,
+  TextInput,
+  Textarea,
+  Select,
+  Modal,
+  Button,
+  ActionIcon,
+  Checkbox,
+  Paper,
+  SegmentedControl,
+} from '@mantine/core'
 import { useState } from 'react'
 import { useLivingStore } from '../store/livingStore'
 import * as svc from '../services/livingService'
-import { Button } from '@mantine/core'
-import { Modal } from '@mantine/core'
 import { EmptyState } from '../../../shared/components/EmptyState'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
+import { SectionLabel } from '../../../shared/components/SectionLabel'
+import { STRINGS as S } from '../constants/strings'
+import { STYLES, imageOrGrad } from '../constants/styles'
+import { format, parseISO } from 'date-fns'
+import { USER_ID } from '../../tasks/constants/taskConstants'
+import { TASK_TYPE, TASK_STATUS } from '../../tasks/constants/taskConstants'
+import { useTaskActions } from '../../tasks/hooks/useTaskActions'
+import { GRADIENTS as SHARED_GRADIENTS } from '../../../shared/constants/styles'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
 
-const GRAD_PLACE = 'linear-gradient(135deg, #1A2E4A 0%, #0D1F35 100%)'
-const GRAD_EXP = 'linear-gradient(135deg, #2A1A3E 0%, #1A0D2E 100%)'
+const VIEW_KEY = 'living-view'
+
+// ─── Reusable sub-components ──────────────────────────────────────────────────
+
+function ImageCard({
+  name,
+  sub,
+  img,
+  grad,
+  onClick,
+}: {
+  name: string
+  sub?: string
+  img: string | null
+  grad: string
+  onClick: () => void
+}) {
+  return (
+    <UnstyledButton
+      onClick={onClick}
+      w="100%"
+      h={STYLES.CARD_HEIGHT}
+      style={{
+        background: imageOrGrad(img, grad),
+        borderRadius: 'var(--mantine-radius-lg)',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        pos="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        style={{
+          background: SHARED_GRADIENTS.IMAGE_OVERLAY,
+        }}
+      />
+      <Stack pos="absolute" bottom={0} left={0} p="md" gap={4}>
+        <Text fw={700} c="white" size="md">
+          {name}
+        </Text>
+        {sub && (
+          <Text size="xs" c="dimmed">
+            {sub}
+          </Text>
+        )}
+      </Stack>
+    </UnstyledButton>
+  )
+}
+
+function DetailHero({ url, grad }: { url: string | null; grad: string }) {
+  return (
+    <Box
+      h={STYLES.DETAIL_IMAGE_HEIGHT}
+      style={{
+        background: imageOrGrad(url, grad),
+        borderRadius: 'var(--mantine-radius-lg)',
+        marginBottom: 'var(--mantine-spacing-md)',
+      }}
+    />
+  )
+}
+
+function MarkDoneModal({
+  opened,
+  title,
+  form,
+  setForm,
+  onSave,
+  onClose,
+}: {
+  opened: boolean
+  title: string
+  form: { date: string; memory: string; image: string }
+  setForm: (f: { date: string; memory: string; image: string }) => void
+  onSave: () => void
+  onClose: () => void
+}) {
+  return (
+    <Modal opened={opened} onClose={onClose} title={title}>
+      <Stack>
+        <TextInput
+          label={S.FIELD_WHEN}
+          value={form.date}
+          onChange={(e) => setForm({ ...form, date: e.currentTarget.value })}
+          placeholder={S.PH_WHEN}
+        />
+        <Textarea
+          label={S.FIELD_MEMORY}
+          value={form.memory}
+          onChange={(e) => setForm({ ...form, memory: e.currentTarget.value })}
+          placeholder={S.PH_MEMORY}
+        />
+        <TextInput
+          label={S.FIELD_PHOTO_URL}
+          value={form.image}
+          onChange={(e) => setForm({ ...form, image: e.currentTarget.value })}
+          placeholder={S.PH_IMAGE_URL}
+        />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            {S.CANCEL}
+          </Button>
+          <Button onClick={onSave}>{S.SAVE}</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
+function PreviousExperiences({
+  visitedPlaces,
+  doneExps,
+}: {
+  visitedPlaces: {
+    id: string
+    name: string
+    visited_date: string | null
+    image_url: string | null
+    done_image_url: string | null
+  }[]
+  doneExps: {
+    id: string
+    name: string
+    done_date: string | null
+    image_url: string | null
+    done_image_url: string | null
+  }[]
+}) {
+  const items = [
+    ...visitedPlaces.map((p) => ({
+      id: p.id,
+      name: p.name,
+      date: p.visited_date,
+      img: p.done_image_url ?? p.image_url,
+      label: S.PREVIOUSLY_VISITED,
+      grad: STYLES.GRAD_PLACE,
+    })),
+    ...doneExps.map((e) => ({
+      id: e.id,
+      name: e.name,
+      date: e.done_date,
+      img: e.done_image_url ?? e.image_url,
+      label: S.PREVIOUSLY_DONE,
+      grad: STYLES.GRAD_EXP,
+    })),
+  ]
+  if (!items.length) return null
+  return (
+    <Stack gap="xs">
+      <Text size="xs" tt="uppercase" c="dimmed" fw={700}>
+        {items[0].label}
+      </Text>
+      <Group gap="sm">
+        {items.slice(0, 4).map((it) => (
+          <Paper
+            key={it.id}
+            w={100}
+            h={100}
+            radius="md"
+            style={{
+              background: imageOrGrad(it.img, it.grad),
+              position: 'relative',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              pos="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              style={{
+                background: SHARED_GRADIENTS.IMAGE_OVERLAY_30,
+              }}
+            />
+            <Stack pos="absolute" bottom={0} left={0} p="xs" gap={2}>
+              <Text size="xs" fw={600} c="white" lineClamp={2}>
+                {it.name}
+              </Text>
+              {it.date && <Text c="dimmed">{it.date}</Text>}
+            </Stack>
+          </Paper>
+        ))}
+      </Group>
+    </Stack>
+  )
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function ExploreScreen() {
   const {
@@ -20,23 +237,29 @@ export function ExploreScreen() {
     addExperience,
     addPlaceExp,
     updatePlaceExp,
+    removePlaceExp,
     updatePlace,
     removePlace,
     updateExperience,
     removeExperience,
     addTodo,
     updateTodo,
+    removeTodo,
     loading,
   } = useLivingStore()
+
   const [view, setView] = useState<'grid' | 'list'>(
-    () => (localStorage.getItem('living-view') as 'grid' | 'list') || 'grid',
+    () => (localStorage.getItem(VIEW_KEY) as 'grid' | 'list') || 'grid',
   )
+  const [tab, setTab] = useState<'places' | 'experiences'>('places')
   const [addType, setAddType] = useState<null | 'place' | 'experience'>(null)
+  const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
     note: '',
     image_url: '',
     place_id: '',
+    target_date: '',
   })
   const [detail, setDetail] = useState<string | null>(null)
   const [expDetail, setExpDetail] = useState<string | null>(null)
@@ -51,85 +274,177 @@ export function ExploreScreen() {
   const [doneForm, setDoneForm] = useState({ date: '', memory: '', image: '' })
   const [newTodo, setNewTodo] = useState('')
   const [addingTodo, setAddingTodo] = useState(false)
+  const [editTodoId, setEditTodoId] = useState<string | null>(null)
+  const [editTodoText, setEditTodoText] = useState('')
+  const [editPEId, setEditPEId] = useState<string | null>(null)
+  const [editPEText, setEditPEText] = useState('')
+  const { create: createTask } = useTaskActions()
 
   const wantPlaces = places.filter((p) => p.status === 'want')
   const wantExps = experiences.filter((e) => e.status === 'want')
+  const visitedPlaces = places.filter((p) => p.status === 'visited')
+  const doneExps = experiences.filter((e) => e.status === 'done')
   const openTodos = todos.filter((t) => t.status === 'todo')
-  const doneCount =
-    places.filter((p) => p.status === 'visited').length +
-    experiences.filter((e) => e.status === 'done').length
+  const doneCount = visitedPlaces.length + doneExps.length
+
+  const detailPlace = detail ? places.find((p) => p.id === detail) : null
+  const detailExp = expDetail
+    ? experiences.find((e) => e.id === expDetail)
+    : null
+  const detailPEs = detail
+    ? placeExps.filter((pe) => pe.place_id === detail)
+    : []
 
   function setViewPref(v: 'grid' | 'list') {
     setView(v)
-    localStorage.setItem('living-view', v)
+    localStorage.setItem(VIEW_KEY, v)
   }
 
-  if (loading) return <SkeletonRow count={6} />
+  function resetForm() {
+    setForm({
+      name: '',
+      note: '',
+      image_url: '',
+      place_id: '',
+      target_date: '',
+    })
+    setAddType(null)
+    setEditId(null)
+  }
+
+  function openEditPlace(id: string) {
+    const p = places.find((x) => x.id === id)
+    if (!p) return
+    setEditId(id)
+    setForm({
+      name: p.name,
+      note: p.note ?? '',
+      image_url: p.image_url ?? '',
+      place_id: '',
+      target_date: p.target_date ?? '',
+    })
+    setAddType('place')
+    setDetail(null)
+  }
+
+  function openEditExp(id: string) {
+    const e = experiences.find((x) => x.id === id)
+    if (!e) return
+    setEditId(id)
+    setForm({
+      name: e.name,
+      note: '',
+      image_url: e.image_url ?? '',
+      place_id: e.place_id ?? '',
+      target_date: e.target_date ?? '',
+    })
+    setAddType('experience')
+    setExpDetail(null)
+  }
+
+  function placeSubtext(placeId: string) {
+    const n = placeExps.filter(
+      (pe) => pe.place_id === placeId && pe.status === 'want',
+    ).length
+    return n > 0 ? S.THINGS_TO_DO(n) : S.NO_PLANS
+  }
+
+  function placeSubtextList(placeId: string) {
+    const n = placeExps.filter(
+      (pe) => pe.place_id === placeId && pe.status === 'want',
+    ).length
+    return n > 0 ? S.THINGS_TO_DO_THERE_COUNT(n) : S.NO_SPECIFIC_PLANS
+  }
+
+  // ─── CRUD helpers ─────────────────────────────────────────────────────────
 
   async function savePlace() {
     if (!form.name.trim()) return
-    const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
-      name: form.name,
-      note: form.note || null,
-      image_url: form.image_url || null,
-      status: 'want' as const,
-      visited_date: null,
-      memory: null,
-      done_image_url: null,
+    if (editId) {
+      const u = {
+        name: form.name,
+        note: form.note || null,
+        image_url: form.image_url || null,
+        target_date: form.target_date || null,
+      }
+      updatePlace(editId, u)
+      try {
+        await svc.updatePlace(editId, u)
+      } catch {}
+    } else {
+      const row = {
+        user_id: USER_ID,
+        name: form.name,
+        note: form.note || null,
+        image_url: form.image_url || null,
+        target_date: form.target_date || null,
+        status: 'want' as const,
+        visited_date: null,
+        memory: null,
+        done_image_url: null,
+      }
+      try {
+        addPlace(await svc.insertPlace(row))
+      } catch {
+        addPlace({
+          ...row,
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+        })
+      }
     }
-    try {
-      const r = await svc.insertPlace(row)
-      addPlace(r)
-    } catch {
-      addPlace({
-        ...row,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-      })
-    }
-    setAddType(null)
-    setForm({ name: '', note: '', image_url: '', place_id: '' })
+    resetForm()
   }
 
   async function saveExp() {
     if (!form.name.trim()) return
-    const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
-      name: form.name,
-      image_url: form.image_url || null,
-      place_id: form.place_id || null,
-      status: 'want' as const,
-      done_date: null,
-      memory: null,
-      done_image_url: null,
+    if (editId) {
+      const u = {
+        name: form.name,
+        image_url: form.image_url || null,
+        place_id: form.place_id || null,
+        target_date: form.target_date || null,
+      }
+      updateExperience(editId, u)
+      try {
+        await svc.updateExperience(editId, u)
+      } catch {}
+    } else {
+      const row = {
+        user_id: USER_ID,
+        name: form.name,
+        image_url: form.image_url || null,
+        place_id: form.place_id || null,
+        target_date: form.target_date || null,
+        status: 'want' as const,
+        done_date: null,
+        memory: null,
+        done_image_url: null,
+      }
+      try {
+        addExperience(await svc.insertExperience(row))
+      } catch {
+        addExperience({
+          ...row,
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+        })
+      }
     }
-    try {
-      const r = await svc.insertExperience(row)
-      addExperience(r)
-    } catch {
-      addExperience({
-        ...row,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-      })
-    }
-    setAddType(null)
-    setForm({ name: '', note: '', image_url: '', place_id: '' })
+    resetForm()
   }
 
   async function addPE(placeId: string) {
     if (!newPE.trim()) return
     const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
+      user_id: USER_ID,
       place_id: placeId,
       name: newPE,
       status: 'want' as const,
       done_date: null,
     }
     try {
-      const r = await svc.insertPlaceExperience(row)
-      addPlaceExp(r)
+      addPlaceExp(await svc.insertPlaceExperience(row))
     } catch {
       addPlaceExp({
         ...row,
@@ -148,6 +463,23 @@ export function ExploreScreen() {
     updatePlaceExp(id, u)
     try {
       await svc.updatePlaceExperience(id, u)
+    } catch {}
+  }
+
+  async function savePEEdit(id: string) {
+    if (!editPEText.trim()) return
+    updatePlaceExp(id, { name: editPEText })
+    try {
+      await svc.updatePlaceExperience(id, { name: editPEText })
+    } catch {}
+    setEditPEId(null)
+    setEditPEText('')
+  }
+
+  async function deletePE(id: string) {
+    removePlaceExp(id)
+    try {
+      await svc.deletePlaceExperience(id)
     } catch {}
   }
 
@@ -186,7 +518,7 @@ export function ExploreScreen() {
   }
 
   async function handleDeletePlace(id: string) {
-    if (!confirm('Remove this place from your list?')) return
+    if (!confirm(S.CONFIRM_DELETE_PLACE)) return
     removePlace(id)
     setDetail(null)
     try {
@@ -195,7 +527,7 @@ export function ExploreScreen() {
   }
 
   async function handleDeleteExp(id: string) {
-    if (!confirm('Remove this experience?')) return
+    if (!confirm(S.CONFIRM_DELETE_EXP)) return
     removeExperience(id)
     setExpDetail(null)
     try {
@@ -206,14 +538,13 @@ export function ExploreScreen() {
   async function submitTodo() {
     if (!newTodo.trim()) return
     const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
+      user_id: USER_ID,
       description: newTodo,
       status: 'todo' as const,
       completed_at: null,
     }
     try {
-      const r = await svc.insertLivingTodo(row)
-      addTodo(r)
+      addTodo(await svc.insertLivingTodo(row))
     } catch {
       addTodo({
         ...row,
@@ -236,433 +567,664 @@ export function ExploreScreen() {
     } catch {}
   }
 
-  const detailPlace = detail ? places.find((p) => p.id === detail) : null
-  const detailExp = expDetail
-    ? experiences.find((e) => e.id === expDetail)
-    : null
-  const detailPEs = detail
-    ? placeExps.filter((pe) => pe.place_id === detail)
-    : []
+  async function saveTodoEdit(id: string) {
+    if (!editTodoText.trim()) return
+    updateTodo(id, { description: editTodoText })
+    try {
+      await svc.updateLivingTodo(id, { description: editTodoText })
+    } catch {}
+    setEditTodoId(null)
+    setEditTodoText('')
+  }
 
-  if (!wantPlaces.length && !wantExps.length && !loading) {
+  async function deleteTodo(id: string) {
+    if (!confirm(S.CONFIRM_DELETE_TODO)) return
+    removeTodo(id)
+    try {
+      await svc.deleteLivingTodo(id)
+    } catch {}
+  }
+
+  // ─── Loading / Empty ──────────────────────────────────────────────────────
+
+  if (loading) return <SkeletonRow count={6} />
+
+  if (!wantPlaces.length && !wantExps.length) {
     return (
-      <Box>
-        <Box>
-          <Box />
-          <Button onClick={() => setAddType('place')}>+ add</Button>
-        </Box>
+      <Stack>
         <EmptyState
-          message="The world is waiting for you"
-          sub="Add places you want to go and things you want to experience."
+          icon="🌍"
+          message={S.EMPTY_EXPLORE}
+          sub={S.EMPTY_EXPLORE_SUB}
+        >
+          <Group gap="xs" mt="sm">
+            <Button
+              variant="light"
+              size="sm"
+              onClick={() => setAddType('place')}
+            >
+              {S.PLACE_BTN}
+            </Button>
+            <Button
+              variant="light"
+              size="sm"
+              onClick={() => setAddType('experience')}
+            >
+              {S.EXPERIENCE_BTN}
+            </Button>
+          </Group>
+        </EmptyState>
+        {/* Show previous experiences as motivation */}
+        <PreviousExperiences
+          visitedPlaces={visitedPlaces}
+          doneExps={doneExps}
         />
-        <AddModal />
-      </Box>
+        <AddModals />
+      </Stack>
     )
   }
 
-  function ImageCard({
-    name,
-    sub,
-    img,
-    grad,
-    onClick,
-  }: {
-    name: string
-    sub?: string
-    img: string | null
-    grad: string
-    onClick: () => void
-  }) {
-    return (
-      <UnstyledButton
-        onClick={onClick}
-        style={{ background: img ? `url(${img}) center/cover` : grad }}
-      >
-        <Box />
-        <Box>
-          <Box>{name}</Box>
-          {sub && <Box>{sub}</Box>}
-        </Box>
-      </UnstyledButton>
-    )
-  }
+  // ─── Add Modals ───────────────────────────────────────────────────────────
 
-  function AddModal() {
+  function AddModals() {
     return (
       <>
-        <Modal open={addType === 'place'} onClose={() => setAddType(null)}>
-          <Box>Add a place</Box>
-          <label>name</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Tokyo, Patagonia, Amalfi..."
-          />
-          <label>what draws you there? (optional)</label>
-          <input
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="the food, the mountains, the quiet..."
-          />
-          <label>image url (optional)</label>
-          <input
-            value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-            placeholder="https://..."
-          />
-          <Box>
-            <Button variant="secondary" onClick={() => setAddType(null)}>
-              cancel
-            </Button>
-            <Button onClick={savePlace} disabled={!form.name.trim()}>
-              save
-            </Button>
-          </Box>
+        {/* Add/Edit Place */}
+        <Modal
+          opened={addType === 'place'}
+          onClose={resetForm}
+          title={editId ? S.EDIT_PLACE : S.ADD_PLACE}
+        >
+          <Stack>
+            <TextInput
+              label={S.FIELD_NAME}
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.currentTarget.value })
+              }
+              placeholder={S.PH_PLACE_NAME}
+              data-autofocus
+            />
+            <TextInput
+              label={S.FIELD_NOTE}
+              value={form.note}
+              onChange={(e) =>
+                setForm({ ...form, note: e.currentTarget.value })
+              }
+              placeholder={S.PH_PLACE_NOTE}
+            />
+            <TextInput
+              label={S.FIELD_IMAGE_URL}
+              value={form.image_url}
+              onChange={(e) =>
+                setForm({ ...form, image_url: e.currentTarget.value })
+              }
+              placeholder={S.PH_IMAGE_URL}
+            />
+            <TextInput
+              label="Target Date"
+              type="date"
+              value={form.target_date}
+              onChange={(e) =>
+                setForm({ ...form, target_date: e.currentTarget.value })
+              }
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={resetForm}>
+                {S.CANCEL}
+              </Button>
+              <Button onClick={savePlace} disabled={!form.name.trim()}>
+                {S.SAVE}
+              </Button>
+            </Group>
+          </Stack>
         </Modal>
-        <Modal open={addType === 'experience'} onClose={() => setAddType(null)}>
-          <Box>Add an experience</Box>
-          <label>name</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Watch a sunrise alone, Learn to surf..."
-          />
-          <label>linked to a place (optional)</label>
-          <select
-            value={form.place_id}
-            onChange={(e) => setForm({ ...form, place_id: e.target.value })}
-          >
-            <option value="">None</option>
-            {places.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <label>image url (optional)</label>
-          <input
-            value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-            placeholder="https://..."
-          />
-          <Box>
-            <Button variant="secondary" onClick={() => setAddType(null)}>
-              cancel
-            </Button>
-            <Button onClick={saveExp} disabled={!form.name.trim()}>
-              save
-            </Button>
-          </Box>
+
+        {/* Add/Edit Experience */}
+        <Modal
+          opened={addType === 'experience'}
+          onClose={resetForm}
+          title={editId ? S.EDIT_EXPERIENCE : S.ADD_EXPERIENCE}
+        >
+          <Stack>
+            <TextInput
+              label={S.FIELD_NAME}
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.currentTarget.value })
+              }
+              placeholder={S.PH_EXP_NAME}
+              data-autofocus
+            />
+            <Select
+              label={S.FIELD_LINKED_PLACE}
+              value={form.place_id || null}
+              onChange={(v) => setForm({ ...form, place_id: v ?? '' })}
+              data={[
+                { value: '', label: S.NONE },
+                ...places.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              clearable
+            />
+            <TextInput
+              label={S.FIELD_IMAGE_URL}
+              value={form.image_url}
+              onChange={(e) =>
+                setForm({ ...form, image_url: e.currentTarget.value })
+              }
+              placeholder={S.PH_IMAGE_URL}
+            />
+            <TextInput
+              label="Target Date"
+              type="date"
+              value={form.target_date}
+              onChange={(e) =>
+                setForm({ ...form, target_date: e.currentTarget.value })
+              }
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={resetForm}>
+                {S.CANCEL}
+              </Button>
+              <Button onClick={saveExp} disabled={!form.name.trim()}>
+                {S.SAVE}
+              </Button>
+            </Group>
+          </Stack>
         </Modal>
       </>
     )
   }
 
+  // ─── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <Box>
+    <Stack>
       {/* Win banner */}
       {doneCount > 0 && (
-        <Box>
-          <Text component="span">🌟</Text>
-          <Box>
-            {doneCount} experience{doneCount !== 1 ? 's' : ''} lived. Keep
-            collecting moments.
-          </Box>
-        </Box>
+        <Paper
+          p="sm"
+          radius="lg"
+          style={{
+            background: 'var(--mantine-color-coral-9)',
+            border: '1px solid var(--mantine-color-coral-7)',
+          }}
+        >
+          <Group gap="sm">
+            <Text size="lg">🌟</Text>
+            <Text size="sm" c="white">
+              {doneCount} {doneCount !== 1 ? 'experiences' : 'experience'}{' '}
+              {S.WIN_SUFFIX}
+            </Text>
+          </Group>
+        </Paper>
       )}
 
-      <Box>
-        <Box>
-          <UnstyledButton onClick={() => setViewPref('grid')}>
+      {/* Toolbar */}
+      <Group justify="space-between">
+        <SegmentedControl
+          value={tab}
+          onChange={(v) => setTab(v as 'places' | 'experiences')}
+          data={[
+            { value: 'places', label: S.TAB_PLACES },
+            { value: 'experiences', label: S.TAB_EXPERIENCES },
+          ]}
+          size="sm"
+        />
+        <Group gap="xs">
+          <ActionIcon
+            variant={view === 'grid' ? 'filled' : 'subtle'}
+            onClick={() => setViewPref('grid')}
+            aria-label="Grid view"
+          >
             🔲
-          </UnstyledButton>
-          <UnstyledButton onClick={() => setViewPref('list')}>
+          </ActionIcon>
+          <ActionIcon
+            variant={view === 'list' ? 'filled' : 'subtle'}
+            onClick={() => setViewPref('list')}
+            aria-label="List view"
+          >
             ☰
-          </UnstyledButton>
-        </Box>
-        <Box>
-          <Button variant="ghost" onClick={() => setAddType('place')}>
-            📍 place
-          </Button>
-          <Button variant="ghost" onClick={() => setAddType('experience')}>
-            ✨ experience
-          </Button>
-        </Box>
-      </Box>
+          </ActionIcon>
+        </Group>
+      </Group>
 
-      {/* Places */}
-      {wantPlaces.length > 0 && (
-        <>
-          <Box>places to go</Box>
-          {view === 'grid' ? (
-            <Box>
-              {wantPlaces.map((p) => {
-                const peCount = placeExps.filter(
-                  (pe) => pe.place_id === p.id && pe.status === 'want',
-                ).length
-                return (
+      {/* Places tab */}
+      {tab === 'places' && (
+        <Stack gap="sm">
+          <Group justify="space-between">
+            <SectionLabel>{S.PLACES_TO_GO}</SectionLabel>
+            <Button
+              variant="light"
+              size="xs"
+              onClick={() => setAddType('place')}
+            >
+              {S.PLACE_BTN}
+            </Button>
+          </Group>
+          {wantPlaces.length > 0 ? (
+            view === 'grid' ? (
+              <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
+                {wantPlaces.map((p) => (
                   <ImageCard
                     key={p.id}
                     name={p.name}
-                    sub={
-                      peCount > 0 ? `${peCount} things to do` : 'no plans yet'
-                    }
+                    sub={`${placeSubtext(p.id)}${p.target_date ? ` · ${format(parseISO(p.target_date), 'MMM d')}` : ''}`}
                     img={p.image_url}
-                    grad={GRAD_PLACE}
+                    grad={STYLES.GRAD_PLACE}
                     onClick={() => setDetail(p.id)}
                   />
-                )
-              })}
-            </Box>
-          ) : (
-            <Box>
-              {wantPlaces.map((p) => {
-                const peCount = placeExps.filter(
-                  (pe) => pe.place_id === p.id && pe.status === 'want',
-                ).length
-                return (
-                  <Box key={p.id} onClick={() => setDetail(p.id)}>
-                    <Box>
-                      <Box>{p.name}</Box>
+                ))}
+              </SimpleGrid>
+            ) : (
+              <Stack gap="xs">
+                <SortableList items={wantPlaces} onReorder={(r) => persistOrder(r, (id, d) => svc.updatePlace(id, d).catch(() => {}), (id, d) => svc.updatePlace(id, d))} renderItem={(p) => (
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    withBorder
+                    onClick={() => setDetail(p.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <Group justify="space-between">
                       <Box>
-                        {peCount > 0
-                          ? `${peCount} things to do there`
-                          : 'no specific plans yet'}
+                        <Text fw={600}>{p.name}</Text>
+                        <Group gap="xs">
+                          <Text size="xs" c="dimmed">
+                            {placeSubtextList(p.id)}
+                          </Text>
+                          {p.target_date && (
+                            <Text size="xs" c="teal">
+                              · {format(parseISO(p.target_date), 'MMM d')}
+                            </Text>
+                          )}
+                        </Group>
                       </Box>
-                    </Box>
-                    <Text component="span">→</Text>
-                  </Box>
-                )
-              })}
-            </Box>
+                      <Text c="dimmed">→</Text>
+                    </Group>
+                  </Paper>
+                )} />
+              </Stack>
+            )
+          ) : (
+            <Stack gap="md">
+              <EmptyState
+                icon="📍"
+                message={S.EMPTY_PLACES}
+                sub={S.EMPTY_PLACES_SUB}
+              />
+              <PreviousExperiences
+                visitedPlaces={visitedPlaces}
+                doneExps={[]}
+              />
+            </Stack>
           )}
-        </>
+        </Stack>
       )}
 
-      {/* Experiences */}
-      {wantExps.length > 0 && (
-        <>
-          <Box>things to experience</Box>
-          {view === 'grid' ? (
-            <Box>
-              {wantExps.map((e) => (
-                <ImageCard
-                  key={e.id}
-                  name={e.name}
-                  img={e.image_url}
-                  grad={GRAD_EXP}
-                  onClick={() => setExpDetail(e.id)}
-                />
-              ))}
-            </Box>
+      {/* Experiences tab */}
+      {tab === 'experiences' && (
+        <Stack gap="sm">
+          <Group justify="space-between">
+            <SectionLabel>{S.THINGS_TO_EXPERIENCE}</SectionLabel>
+            <Button
+              variant="light"
+              size="xs"
+              onClick={() => setAddType('experience')}
+            >
+              {S.EXPERIENCE_BTN}
+            </Button>
+          </Group>
+          {wantExps.length > 0 ? (
+            view === 'grid' ? (
+              <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
+                {wantExps.map((e) => (
+                  <ImageCard
+                    key={e.id}
+                    name={e.name}
+                    sub={
+                      e.target_date
+                        ? format(parseISO(e.target_date), 'MMM d')
+                        : undefined
+                    }
+                    img={e.image_url}
+                    grad={STYLES.GRAD_EXP}
+                    onClick={() => setExpDetail(e.id)}
+                  />
+                ))}
+              </SimpleGrid>
+            ) : (
+              <Stack gap="xs">
+                <SortableList items={wantExps} onReorder={(r) => persistOrder(r, (id, d) => svc.updateExperience(id, d).catch(() => {}), (id, d) => svc.updateExperience(id, d))} renderItem={(e) => {
+                  const place = e.place_id
+                    ? places.find((p) => p.id === e.place_id)
+                    : null
+                  return (
+                    <Paper
+                      p="sm"
+                      radius="md"
+                      withBorder
+                      onClick={() => setExpDetail(e.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Group gap="xs">
+                        <Text c="dimmed">○</Text>
+                        <Text fw={500}>{e.name}</Text>
+                        {place && (
+                          <Text size="xs" c="dimmed">
+                            · {place.name}
+                          </Text>
+                        )}
+                        {e.target_date && (
+                          <Text size="xs" c="teal">
+                            · {format(parseISO(e.target_date), 'MMM d')}
+                          </Text>
+                        )}
+                      </Group>
+                    </Paper>
+                  )
+                }} />
+              </Stack>
+            )
           ) : (
-            <Box>
-              {wantExps.map((e) => {
-                const place = e.place_id
-                  ? places.find((p) => p.id === e.place_id)
-                  : null
-                return (
-                  <Box key={e.id} onClick={() => setExpDetail(e.id)}>
-                    <Text component="span">○</Text>
-                    <Text component="span">{e.name}</Text>
-                    {place && <Text component="span">· {place.name}</Text>}
-                  </Box>
-                )
-              })}
-            </Box>
+            <Stack gap="md">
+              <EmptyState
+                icon="✨"
+                message={S.EMPTY_EXPS}
+                sub={S.EMPTY_EXPS_SUB}
+              />
+              <PreviousExperiences visitedPlaces={[]} doneExps={doneExps} />
+            </Stack>
           )}
-        </>
+        </Stack>
       )}
 
       {/* Todos */}
       <Divider />
-      <Box>
-        <Box>things to research</Box>
-        <Button variant="ghost" onClick={() => setAddingTodo(true)}>
-          + add
+      <Group justify="space-between">
+        <SectionLabel>{S.THINGS_TO_RESEARCH}</SectionLabel>
+        <Button variant="subtle" size="xs" onClick={() => setAddingTodo(true)}>
+          {S.ADD}
         </Button>
-      </Box>
+      </Group>
       {!openTodos.length ? (
         <EmptyState
-          message="Nothing to look up right now"
-          sub="Add research or planning tasks here."
+          icon="🔍"
+          message={S.EMPTY_RESEARCH}
+          sub={S.EMPTY_RESEARCH_SUB}
         />
       ) : (
-        <Box>
-          {openTodos.map((t) => (
-            <Box key={t.id}>
-              <UnstyledButton
-                onClick={() => completeTodo(t.id)}
-                style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+        <Stack gap="xs">
+          <SortableList items={openTodos} onReorder={(r) => persistOrder(r, (id, d) => svc.updateLivingTodo(id, d).catch(() => {}), (id, d) => svc.updateLivingTodo(id, d))} renderItem={(t) => (
+            <Group gap="sm">
+              <Checkbox
+                size="xs"
+                radius="xl"
+                onChange={() => completeTodo(t.id)}
+                aria-label={`Complete: ${t.description}`}
               />
-              <Text component="span">{t.description}</Text>
-            </Box>
-          ))}
-        </Box>
+              {editTodoId === t.id ? (
+                <TextInput
+                  flex={1}
+                  size="xs"
+                  value={editTodoText}
+                  onChange={(e) => setEditTodoText(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveTodoEdit(t.id)
+                    if (e.key === 'Escape') setEditTodoId(null)
+                  }}
+                  data-autofocus
+                  rightSection={
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      onClick={() => saveTodoEdit(t.id)}
+                    >
+                      ✓
+                    </ActionIcon>
+                  }
+                />
+              ) : (
+                <Text
+                  size="sm"
+                  flex={1}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    setEditTodoId(t.id)
+                    setEditTodoText(t.description)
+                  }}
+                >
+                  {t.description}
+                </Text>
+              )}
+              {editTodoId !== t.id && (
+                <>
+                  <ActionIcon size="xs" variant="subtle" color="teal" title="Make task"
+                    onClick={async () => {
+                      await createTask({
+                        user_id: USER_ID, title: t.description, notes: null,
+                        type: TASK_TYPE.PERSONAL, priority: null, is_must: false,
+                        status: TASK_STATUS.TODO, due_date: null, do_today: false,
+                        completed_at: null, goal_id: null, milestone_id: null,
+                        project_id: null, roadmap_item_id: null, calendar_event_id: null,
+                        parent_task_id: null, ticket_id: null, order_index: 0,
+                        cadence: null, cadence_days: null, cadence_date: null,
+                        cadence_interval: null, push_count: 0, sprint_id: null,
+                        blocked: false, blocked_note: null, is_learning: false,
+                      })
+                      completeTodo(t.id)
+                    }}>
+                    ✅
+                  </ActionIcon>
+                  <ActionIcon size="xs" variant="subtle" color="red" onClick={() => deleteTodo(t.id)}>
+                    ✕
+                  </ActionIcon>
+                </>
+              )}
+            </Group>
+          )} />
+        </Stack>
       )}
       {addingTodo && (
-        <Box>
-          <input
+        <Group gap="xs">
+          <TextInput
+            flex={1}
+            size="sm"
             value={newTodo}
-            onChange={(e) => setNewTodo(e.target.value)}
+            onChange={(e) => setNewTodo(e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submitTodo()
               if (e.key === 'Escape') setAddingTodo(false)
             }}
-            placeholder="research, find, look up..."
-            autoFocus
+            placeholder={S.PH_RESEARCH}
+            data-autofocus
           />
-          <Button onClick={submitTodo}>add</Button>
-        </Box>
+          <Button size="sm" onClick={submitTodo}>
+            {S.ADD}
+          </Button>
+        </Group>
       )}
 
-      <AddModal />
+      <AddModals />
 
       {/* Place Detail */}
-      <Modal open={!!detailPlace} onClose={() => setDetail(null)}>
+      <Modal
+        opened={!!detailPlace}
+        onClose={() => setDetail(null)}
+        title={detailPlace?.name}
+        size="lg"
+      >
         {detailPlace && (
-          <>
-            <Box
-              style={{
-                background: detailPlace.image_url
-                  ? `url(${detailPlace.image_url}) center/cover`
-                  : GRAD_PLACE,
-              }}
-            />
-            <Box>{detailPlace.name}</Box>
-            {detailPlace.note && <Box>{detailPlace.note}</Box>}
+          <Stack>
+            <DetailHero url={detailPlace.image_url} grad={STYLES.GRAD_PLACE} />
+            {detailPlace.note && (
+              <Text size="sm" c="dimmed">
+                {detailPlace.note}
+              </Text>
+            )}
             <Divider />
-            <Box>things to do there</Box>
-            {detailPEs.map((pe) => (
-              <Box key={pe.id}>
-                <UnstyledButton
-                  onClick={() => pe.status === 'want' && markPEDone(pe.id)}
-                  style={{ border: '1px solid rgba(255,255,255,0.12)' }}
-                >
-                  {pe.status === 'done' && '✓'}
-                </UnstyledButton>
-                <Text component="span">{pe.name}</Text>
-              </Box>
-            ))}
-            <Box>
-              <input
+            <SectionLabel>{S.THINGS_TO_DO_THERE}</SectionLabel>
+            <Stack gap="xs">
+              {detailPEs.map((pe) => (
+                <Group key={pe.id} gap="sm">
+                  <Checkbox
+                    size="xs"
+                    radius="xl"
+                    checked={pe.status === 'done'}
+                    onChange={() => pe.status === 'want' && markPEDone(pe.id)}
+                    aria-label={pe.name}
+                  />
+                  {editPEId === pe.id ? (
+                    <TextInput
+                      flex={1}
+                      size="xs"
+                      value={editPEText}
+                      onChange={(e) => setEditPEText(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') savePEEdit(pe.id)
+                        if (e.key === 'Escape') setEditPEId(null)
+                      }}
+                      data-autofocus
+                      rightSection={
+                        <ActionIcon
+                          size="xs"
+                          variant="subtle"
+                          onClick={() => savePEEdit(pe.id)}
+                        >
+                          ✓
+                        </ActionIcon>
+                      }
+                    />
+                  ) : (
+                    <>
+                      <Text
+                        size="sm"
+                        flex={1}
+                        td={pe.status === 'done' ? 'line-through' : undefined}
+                        c={pe.status === 'done' ? 'dimmed' : undefined}
+                      >
+                        {pe.name}
+                      </Text>
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        onClick={() => {
+                          setEditPEId(pe.id)
+                          setEditPEText(pe.name)
+                        }}
+                      >
+                        ✎
+                      </ActionIcon>
+                    </>
+                  )}
+                  {editPEId !== pe.id && (
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      color="red"
+                      onClick={() => deletePE(pe.id)}
+                    >
+                      ✕
+                    </ActionIcon>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+            <Group gap="xs">
+              <TextInput
+                flex={1}
+                size="sm"
                 value={newPE}
-                onChange={(e) => setNewPE(e.target.value)}
+                onChange={(e) => setNewPE(e.currentTarget.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addPE(detailPlace.id)}
-                placeholder="add thing to do..."
+                placeholder={S.PH_ADD_THING}
               />
-              <Button variant="ghost" onClick={() => addPE(detailPlace.id)}>
+              <ActionIcon variant="light" onClick={() => addPE(detailPlace.id)}>
                 +
-              </Button>
-            </Box>
+              </ActionIcon>
+            </Group>
             <Divider />
-            <Box>
-              <Button onClick={() => setMarkVisited(detailPlace.id)}>
-                ✓ mark as visited
-              </Button>
+            <Group justify="space-between">
+              <Group gap="xs">
+                <Button onClick={() => setMarkVisited(detailPlace.id)}>
+                  {S.MARK_VISITED}
+                </Button>
+                <Button
+                  variant="light"
+                  onClick={() => openEditPlace(detailPlace.id)}
+                >
+                  {S.EDIT}
+                </Button>
+              </Group>
               <Button
-                variant="ghost"
+                variant="subtle"
+                color="red"
                 onClick={() => handleDeletePlace(detailPlace.id)}
               >
-                delete
+                {S.DELETE}
               </Button>
-            </Box>
-          </>
+            </Group>
+          </Stack>
         )}
       </Modal>
 
       {/* Experience Detail */}
-      <Modal open={!!detailExp} onClose={() => setExpDetail(null)}>
+      <Modal
+        opened={!!detailExp}
+        onClose={() => setExpDetail(null)}
+        title={detailExp?.name}
+        size="lg"
+      >
         {detailExp && (
-          <>
-            <Box
-              style={{
-                background: detailExp.image_url
-                  ? `url(${detailExp.image_url}) center/cover`
-                  : GRAD_EXP,
-              }}
-            />
-            <Box>{detailExp.name}</Box>
+          <Stack>
+            <DetailHero url={detailExp.image_url} grad={STYLES.GRAD_EXP} />
             {detailExp.place_id && (
-              <Box>
+              <Text size="sm" c="dimmed">
                 · {places.find((p) => p.id === detailExp.place_id)?.name}
-              </Box>
+              </Text>
             )}
             <Divider />
-            <Box>
-              <Button onClick={() => setMarkDone(detailExp.id)}>
-                ✓ mark as done
-              </Button>
+            <Group justify="space-between">
+              <Group gap="xs">
+                <Button onClick={() => setMarkDone(detailExp.id)}>
+                  {S.MARK_DONE}
+                </Button>
+                <Button
+                  variant="light"
+                  onClick={() => openEditExp(detailExp.id)}
+                >
+                  {S.EDIT}
+                </Button>
+              </Group>
               <Button
-                variant="ghost"
+                variant="subtle"
+                color="red"
                 onClick={() => handleDeleteExp(detailExp.id)}
               >
-                delete
+                {S.DELETE}
               </Button>
-            </Box>
-          </>
+            </Group>
+          </Stack>
         )}
       </Modal>
 
-      {/* Mark Visited Modal */}
-      <Modal open={!!markVisited} onClose={() => setMarkVisited(null)}>
-        <Box>You went! 🎉</Box>
-        <label>when</label>
-        <input
-          value={visitForm.date}
-          onChange={(e) => setVisitForm({ ...visitForm, date: e.target.value })}
-          placeholder="Apr 2026"
-        />
-        <label>what stays with you? (optional)</label>
-        <textarea
-          value={visitForm.memory}
-          onChange={(e) =>
-            setVisitForm({ ...visitForm, memory: e.target.value })
-          }
-          placeholder="the sounds, the light, the feeling..."
-        />
-        <label>photo url (optional)</label>
-        <input
-          value={visitForm.image}
-          onChange={(e) =>
-            setVisitForm({ ...visitForm, image: e.target.value })
-          }
-        />
-        <Box>
-          <Button variant="secondary" onClick={() => setMarkVisited(null)}>
-            cancel
-          </Button>
-          <Button onClick={handleMarkVisited}>save</Button>
-        </Box>
-      </Modal>
-
-      {/* Mark Done Modal */}
-      <Modal open={!!markDone} onClose={() => setMarkDone(null)}>
-        <Box>You did it! ✨</Box>
-        <label>when</label>
-        <input
-          value={doneForm.date}
-          onChange={(e) => setDoneForm({ ...doneForm, date: e.target.value })}
-          placeholder="Apr 2026"
-        />
-        <label>what stays with you? (optional)</label>
-        <textarea
-          value={doneForm.memory}
-          onChange={(e) => setDoneForm({ ...doneForm, memory: e.target.value })}
-          placeholder="the sounds, the light, the feeling..."
-        />
-        <label>photo url (optional)</label>
-        <input
-          value={doneForm.image}
-          onChange={(e) => setDoneForm({ ...doneForm, image: e.target.value })}
-        />
-        <Box>
-          <Button variant="secondary" onClick={() => setMarkDone(null)}>
-            cancel
-          </Button>
-          <Button onClick={handleMarkExpDone}>save</Button>
-        </Box>
-      </Modal>
-    </Box>
+      {/* Mark Visited / Mark Done — shared component */}
+      <MarkDoneModal
+        opened={!!markVisited}
+        title={S.YOU_WENT}
+        form={visitForm}
+        setForm={setVisitForm}
+        onSave={handleMarkVisited}
+        onClose={() => setMarkVisited(null)}
+      />
+      <MarkDoneModal
+        opened={!!markDone}
+        title={S.YOU_DID_IT}
+        form={doneForm}
+        setForm={setDoneForm}
+        onSave={handleMarkExpDone}
+        onClose={() => setMarkDone(null)}
+      />
+    </Stack>
   )
 }

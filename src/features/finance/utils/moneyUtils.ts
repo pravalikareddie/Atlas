@@ -3,7 +3,7 @@ export function centsToDollars(cents: number): number {
 }
 
 export function dollarsToCents(dollars: number): number {
-  return Math.round(dollars * 100)
+  return Math.round(Number((dollars * 100).toFixed(0)))
 }
 
 export function formatMoney(cents: number, showDecimals = true): string {

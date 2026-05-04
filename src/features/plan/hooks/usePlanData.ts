@@ -1,14 +1,12 @@
 import { useEffect } from 'react'
 import { usePlanStore } from '../store/planStore'
 import * as svc from '../services/planService'
-
-let loaded = false
+import { USER_ID } from '../../tasks/constants/taskConstants'
 
 export function usePlanData() {
   const store = usePlanStore()
   useEffect(() => {
-    if (loaded || store.loading) return
-    loaded = true
+    if (store.loaded || store.loading) return
     store.setLoading(true)
     Promise.all([
       svc.fetchGoals().catch(() => []),
@@ -18,20 +16,9 @@ export function usePlanData() {
       svc.fetchPlanRoadmaps().catch(() => []),
       svc.fetchPlanSections().catch(() => []),
       svc.fetchPlanItems().catch(() => []),
-      svc
-        .fetchUserSettings('00000000-0000-0000-0000-000000000001')
-        .catch(() => null),
+      svc.fetchUserSettings(USER_ID).catch(() => null),
     ]).then(
-      ([
-        goals,
-        milestones,
-        tasks,
-        projects,
-        roadmaps,
-        sections,
-        items,
-        settings,
-      ]) => {
+      ([goals, milestones, tasks, projects, roadmaps, sections, items]) => {
         store.setGoals(goals)
         store.setMilestones(milestones)
         store.setTasks(tasks)
@@ -39,7 +26,7 @@ export function usePlanData() {
         store.setRoadmaps(roadmaps)
         store.setSections(sections)
         store.setItems(items)
-        store.setMantra(settings?.daily_mantra ?? null)
+        store.setLoaded()
         store.setLoading(false)
       },
     )

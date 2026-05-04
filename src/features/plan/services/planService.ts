@@ -1,10 +1,7 @@
 import { supabase } from '../../../lib/supabase'
 import {
   Routine,
-  RoutineSection,
-  RoutineSession,
-  RoutineStep,
-} from '../../routines/types'
+} from '../../routines/types/routine.types'
 import {
   Goal,
   Milestone,
@@ -39,6 +36,11 @@ export async function insertGoal(
 }
 export async function updateGoal(id: string, u: Partial<Goal>): Promise<void> {
   const { error } = await supabase.from('goals').update(u).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteGoal(id: string): Promise<void> {
+  const { error } = await supabase.from('goals').delete().eq('id', id)
   if (error) throw error
 }
 

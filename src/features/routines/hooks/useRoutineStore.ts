@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { RoutineStore } from '../types'
+import { RoutineStore } from '../types/routine.types'
 
 export const useRoutineStore = create<RoutineStore>((set) => ({
   routines: [],

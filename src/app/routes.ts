@@ -6,6 +6,7 @@ export const ROUTES = {
   FINANCE: '/finance',
   FINANCE_LOG: '/finance/log',
   FINANCE_LOG_EXPENSE: '/finance/log/expense',
+  FINANCE_LOG_INCOME: '/finance/log/income',
   FINANCE_LOG_REFUND: '/finance/log/refund',
   FINANCE_LOG_SPLITWISE: '/finance/log/splitwise',
   FINANCE_LOG_SUBSCRIPTION: '/finance/log/subscription',
@@ -14,6 +15,10 @@ export const ROUTES = {
   FINANCE_TAX: '/finance/tax',
   FINANCE_BLEED: '/finance/bleed',
   FINANCE_EXPENSES: '/finance/expenses',
+  INBOX: '/inbox',
+  INBOX_MEETINGS: '/inbox/meetings',
+  INBOX_BRAINDUMP: '/inbox/braindump',
+
   FOCUS: '/focus',
   HEALTH: '/health',
   HEALTH_MEDICAL: '/health/medical',
@@ -31,7 +36,6 @@ export const ROUTES = {
   PLAN: '/plan',
   PLAN_GOALS: '/plan/goals',
   PLAN_PROJECTS: '/plan/projects',
-  PLAN_ROADMAPS: '/plan/roadmaps',
   PLAN_GOAL_DETAIL: (goalId: string) => `/plan/goals/${goalId}`,
   PLAN_PROJECT_DETAIL: (projectId: string) => `/plan/projects/${projectId}`,
   PLAN_ROADMAP_DETAIL: (roadmapId: string) => `/plan/roadmaps/${roadmapId}`,
@@ -40,4 +44,15 @@ export const ROUTES = {
   ROUTINE_RUN: (id: string) => `/routines/${id}/run`,
   ROUTINE_EDIT: (id: string) => `/routines/${id}/edit`,
   ROUTINE_NEW_EDIT: '/routines/new/edit',
+
+  MEETINGS: '/growth/meetings',
+  MEETING_DETAIL: (id: string) => `/growth/meetings/${id}`,
+  PROJECTS: '/growth/projects',
+  PROJECT_DETAIL: (id: string) => `/growth/projects/${id}`,
+  GOALS: '/growth/goals',
+  GOAL_DETAIL: (id: string) => `/growth/goals/${id}`,
+  ROADMAP_DETAIL: (id: string) => `/growth/roadmaps/${id}`,
+
+  WEEKLY_REVIEW: '/weekly-review',
+  PAST_WEEKS: '/growth/past-weeks',
 } as const

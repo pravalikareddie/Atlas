@@ -9,7 +9,6 @@ export type TaskType =
   | 'living'
   | 'growth'
   | 'goal_task'
-  | 'event'
 
 export type TaskStatus = 'todo' | 'done' | 'skipped'
 export type TaskPriority = 'high' | 'medium' | 'low'
@@ -42,12 +41,23 @@ export interface Task {
   parent_task_id: string | null
   ticket_id: string | null
   order_index: number
-  event_time: string | null
-  event_duration: number | null
   cadence: CadenceType | null
   cadence_days: number[] | null
   cadence_date: number | null
   cadence_interval: number | null
   push_count: number
+  sprint_id: string | null
+  blocked: boolean
+  blocked_note: string | null
+  reminder_time?: string | null  // HH:mm — triggers notification at this time on due_date
+  created_at: string
+}
+
+export interface Sprint {
+  id: string
+  user_id: string
+  name: string
+  start_date: string
+  end_date: string
   created_at: string
 }

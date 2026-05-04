@@ -9,6 +9,7 @@ export interface HealthAppointment {
   status: 'active' | 'archived'
   snoozed_until: string | null
   notes: string | null
+  order_index?: number
   created_at: string
 }
 
@@ -21,6 +22,7 @@ export interface HealthMedication {
   track_refill: boolean
   notes: string | null
   status: 'active' | 'stopped'
+  order_index?: number
   created_at: string
 }
 
@@ -30,6 +32,7 @@ export interface HealthTodo {
   description: string
   status: 'todo' | 'done'
   completed_at: string | null
+  order_index?: number
   created_at: string
 }
 
@@ -43,5 +46,37 @@ export interface DailyLog {
   water_cups: number
   energy_level: number | null
   stress_level: number | null
+  exercise_done: boolean
+  exercise_notes: string | null
+  supplements_done: boolean
+  created_at: string
+}
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
+export interface MealPlan {
+  id: string
+  user_id: string
+  date: string | null
+  meal_type: MealType
+  recipe_name: string
+  order_index?: number
+  created_at: string
+}
+
+export interface ShoppingItem {
+  id: string
+  user_id: string
+  name: string
+  status: 'todo' | 'done'
+  order_index?: number
+  created_at: string
+}
+
+export interface ShoppingFavorite {
+  id: string
+  user_id: string
+  name: string
+  order_index?: number
   created_at: string
 }

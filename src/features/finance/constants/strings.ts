@@ -6,7 +6,7 @@ export const STRINGS = {
   EMPTY_SUBSCRIPTIONS: 'No subscriptions tracked yet.',
   EMPTY_TODOS: 'Nothing on the list. Enjoy the quiet.',
   EMPTY_EXPENSES: 'Your money story starts here.',
-
+  BUDGETS: 'Budgets',
   // Section labels
   NEEDS_ATTENTION: 'NEEDS ATTENTION',
   BUDGETS_THIS_MONTH: 'BUDGETS · this month',
@@ -35,7 +35,7 @@ export const STRINGS = {
   ACTIVE: 'ACTIVE',
 
   // Buttons
-  LOG: '+ log',
+  LOG: 'Log',
   ADD_ACCOUNT: '+ add account',
   ADD_TODO: '+ add todo',
   ADD_ITEM: '+ add item',

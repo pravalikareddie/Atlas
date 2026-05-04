@@ -8,6 +8,8 @@ export interface Place {
   visited_date: string | null
   memory: string | null
   done_image_url: string | null
+  target_date: string | null
+  order_index?: number
   created_at: string
 }
 
@@ -31,6 +33,8 @@ export interface Experience {
   done_date: string | null
   memory: string | null
   done_image_url: string | null
+  target_date: string | null
+  order_index?: number
   created_at: string
 }
 
@@ -39,6 +43,8 @@ export interface Activity {
   user_id: string
   name: string
   image_url: string | null
+  target_date: string | null
+  order_index?: number
   created_at: string
 }
 
@@ -48,5 +54,18 @@ export interface LivingTodo {
   description: string
   status: 'todo' | 'done'
   completed_at: string | null
+  order_index?: number
+  created_at: string
+}
+
+export interface WishlistItem {
+  id: string
+  user_id: string
+  name: string
+  url: string | null
+  price: string | null
+  notes: string | null
+  status: 'want' | 'bought'
+  order_index?: number
   created_at: string
 }

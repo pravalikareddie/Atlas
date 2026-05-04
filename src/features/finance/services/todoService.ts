@@ -1,38 +1,9 @@
-import { supabase } from '../../../lib/supabase'
+import { createCrudService } from '../../../shared/services/crudFactory'
 import { FinanceTodo } from '../types/finance.types'
 
-const TABLE = 'finance_todos'
+const svc = createCrudService<FinanceTodo>('finance_todos', { orderBy: 'order_index', ascending: true })
 
-export async function fetchTodos(): Promise<FinanceTodo[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('*')
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
-  return data ?? []
-}
-
-export async function insertTodo(
-  todo: Omit<FinanceTodo, 'id' | 'created_at'>,
-): Promise<FinanceTodo> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .insert(todo)
-    .select()
-    .single()
-  if (error) throw new Error(error.message)
-  return data
-}
-
-export async function updateTodo(
-  id: string,
-  updates: Partial<FinanceTodo>,
-): Promise<void> {
-  const { error } = await supabase.from(TABLE).update(updates).eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function deleteTodo(id: string): Promise<void> {
-  const { error } = await supabase.from(TABLE).delete().eq('id', id)
-  if (error) throw new Error(error.message)
-}
+export const fetchTodos = svc.fetchAll
+export const insertTodo = svc.insert
+export const updateTodo = svc.update
+export const deleteTodo = svc.remove

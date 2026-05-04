@@ -1,32 +1,40 @@
 import { useState } from 'react'
+import { NavyCard,SectionHeader } from './FinanceDesign'
 import {
   Stack,
   Group,
   Text,
   TextInput,
-  Paper,
   Box,
   Progress,
   Badge,
+  Button,
 } from '@mantine/core'
 import { useFinanceStore } from '../store/financeStore'
 import { useBudgetSummary } from '../hooks/useBudgetSummary'
 import { formatMonthDisplay, daysLeftInMonth } from '../utils/dateUtils'
 import { formatMoneyWhole, dollarsToCents } from '../utils/moneyUtils'
-import { getCategoryInfo, BUDGET_GROUPS } from '../constants/categories'
-import { updateBudget as updateBudgetDb } from '../services/budgetService'
-import { Button } from '@mantine/core'
+import { getCategoryInfo, BUDGET_CATEGORIES } from '../constants/categories'
+import { Budget } from '../types/finance.types'
+import {
+  upsertBudget as upsertBudgetDb,
+} from '../services/budgetService'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
 import { PencilSimple } from '@phosphor-icons/react'
 import { STRINGS } from '../../tasks/constants/strings'
+import { USER_ID } from '../../tasks/constants/taskConstants'
 
 export function BudgetsScreen() {
-  const { currentMonth, budgets, updateBudget, loading } = useFinanceStore()
-  const { rows, totalSpent, totalBudget } = useBudgetSummary()
+  const { currentMonth, budgets, setBudgets, loading } =
+    useFinanceStore()
+  const { rows, totalSpent, totalBudget, totalIncome } = useBudgetSummary()
   const [editing, setEditing] = useState(false)
   const [editValues, setEditValues] = useState<Record<string, string>>({})
 
   if (loading) return <SkeletonRow count={10} />
+
+  const netSavings = totalIncome - totalSpent
+  const spentRatio = totalBudget > 0 ? totalSpent / totalBudget : 0
 
   function startEdit() {
     const vals: Record<string, string> = {}
@@ -35,21 +43,35 @@ export function BudgetsScreen() {
       .forEach((b) => {
         vals[b.category] = String(b.amount / 100)
       })
+    BUDGET_CATEGORIES.forEach((cat) => {
+      if (!vals[cat]) vals[cat] = '0'
+    })
     setEditValues(vals)
     setEditing(true)
   }
 
   async function saveEdit() {
-    for (const b of budgets.filter((b) => b.month === currentMonth)) {
-      const v = editValues[b.category]
-      if (v !== undefined) {
-        const newAmount = dollarsToCents(parseFloat(v) || 0)
-        updateBudget(b.id, { amount: newAmount })
-        try {
-          await updateBudgetDb(b.id, { amount: newAmount })
-        } catch {}
-      }
+    const results: Budget[] = [
+      ...budgets.filter((b) => b.month !== currentMonth),
+    ]
+    for (const [category, val] of Object.entries(editValues)) {
+      const amount = dollarsToCents(parseFloat(val) || 0)
+      if (amount === 0) continue
+      try {
+        const saved = await upsertBudgetDb({
+          user_id: USER_ID,
+          category,
+          month: currentMonth,
+          amount,
+          carried_over: 0,
+          overspend_acknowledged: false,
+          overspend_reason: null,
+          manual_override: false,
+        })
+        results.push(saved)
+      } catch {}
     }
+    setBudgets(results)
     setEditing(false)
   }
 
@@ -73,7 +95,7 @@ export function BudgetsScreen() {
                 {formatMonthDisplay(currentMonth)}
               </Text>
             </Box>
-            <Group gap="xs">
+            <Group gap="md">
               <Button
                 variant="white"
                 color="teal"
@@ -84,8 +106,8 @@ export function BudgetsScreen() {
                 {STRINGS.CANCEL}
               </Button>
               <Button
-                variant="filled"
-                color="white"
+                variant="gradient"
+                gradient={{ from: 'teal', to: 'blue' }}
                 radius="xl"
                 size="sm"
                 onClick={saveEdit}
@@ -96,37 +118,32 @@ export function BudgetsScreen() {
           </Group>
         </Box>
 
-        {BUDGET_GROUPS.map((group) => (
-          <Paper key={group.key} p="lg" radius="xl" withBorder>
-            <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="md">
-              {group.label}
-            </Text>
-            <Stack gap="sm">
-              {group.categories.map((cat) => {
-                const info = getCategoryInfo(cat)
-                return (
-                  <Group key={cat} gap="sm">
-                    <Text style={{ fontSize: 20 }}>{info.emoji}</Text>
-                    <Text size="sm" fw={600} style={{ flex: 1 }}>
-                      {info.label}
-                    </Text>
-                    <TextInput
-                      value={editValues[cat] ?? '0'}
-                      onChange={(e) =>
-                        setEditValues({ ...editValues, [cat]: e.target.value })
-                      }
-                      leftSection={<Text size="sm">$</Text>}
-                      type="number"
-                      w={120}
-                      radius="lg"
-                      size="sm"
-                    />
-                  </Group>
-                )
-              })}
-            </Stack>
-          </Paper>
-        ))}
+        <NavyCard>
+          <Stack gap="md">
+            {BUDGET_CATEGORIES.map((cat) => {
+              const info = getCategoryInfo(cat)
+              return (
+                <Group key={cat} gap="md">
+                  <Text style={{ fontSize: 20, width: 28 }}>{info.emoji}</Text>
+                  <Text size="sm" fw={600} style={{ flex: 1 }}>
+                    {info.label}
+                  </Text>
+                  <TextInput
+                    value={editValues[cat] ?? '0'}
+                    onChange={(e) =>
+                      setEditValues({ ...editValues, [cat]: e.target.value })
+                    }
+                    leftSection={<Text size="sm">$</Text>}
+                    type="number"
+                    w={120}
+                    radius="lg"
+                    size="sm"
+                  />
+                </Group>
+              )
+            })}
+          </Stack>
+        </NavyCard>
       </Stack>
     )
   }
@@ -174,10 +191,9 @@ export function BudgetsScreen() {
             {STRINGS.EDIT_BUDGETS}
           </Button>
         </Group>
-
         <Box mt="md">
           <Progress
-            value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0}
+            value={spentRatio * 100}
             color={totalSpent > totalBudget ? 'red' : 'white'}
             bg="rgba(255,255,255,0.2)"
             radius="xl"
@@ -186,58 +202,83 @@ export function BudgetsScreen() {
         </Box>
       </Box>
 
-      {/* Budget groups */}
-      {BUDGET_GROUPS.map((group) => {
-        const groupRows = rows.filter((r) => r.group === group.key)
-        if (!groupRows.length) return null
-        const groupSpent = groupRows.reduce((s, r) => s + r.spent, 0)
-        const groupBudget = groupRows.reduce((s, r) => s + r.budget, 0)
-
-        return (
-          <Paper key={group.key} p="lg" radius="xl" withBorder>
-            <Group justify="space-between" mb="md">
-              <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-                {group.label}
+      {/* Income vs spend summary */}
+      {totalIncome > 0 && (
+        <NavyCard>
+          <SectionHeader label="This Month" />
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Text size="sm" c="dimmed">
+                Income
               </Text>
-              <Text size="xs" c="dimmed">
-                {formatMoneyWhole(groupSpent)} / {formatMoneyWhole(groupBudget)}
+              <Text size="sm" fw={700} c="teal">
+                {formatMoneyWhole(totalIncome)}
               </Text>
             </Group>
-            <Stack gap="md">
-              {groupRows.map((row) => {
-                const cat = getCategoryInfo(row.category)
-                return (
-                  <Box key={row.category}>
-                    <Group gap="sm" wrap="nowrap" mb={4}>
-                      <Text style={{ fontSize: 18 }}>{cat.emoji}</Text>
-                      <Text size="sm" fw={600} style={{ flex: 1 }}>
-                        {cat.label}
-                      </Text>
-                      <Text size="xs" c={row.overBudget ? 'red' : 'dimmed'}>
-                        {formatMoneyWhole(row.spent)} /{' '}
-                        {formatMoneyWhole(row.budget)}
-                      </Text>
-                      {row.overBudget && (
-                        <Badge variant="urgent">{STRINGS.OVER}</Badge>
-                      )}
-                      {row.goalMet && <Badge variant="done">✓</Badge>}
-                    </Group>
-                    <Progress
-                      value={Math.min(row.ratio * 100, 100)}
-                      color={
-                        row.overBudget ? 'red' : row.goalMet ? 'green' : 'teal'
-                      }
-                      bg="var(--mantine-color-gray-2)"
-                      radius="xl"
-                      size="xs"
-                    />
-                  </Box>
-                )
-              })}
-            </Stack>
-          </Paper>
-        )
-      })}
+            <Group justify="space-between">
+              <Text size="sm" c="dimmed">
+                Spent
+              </Text>
+              <Text size="sm" fw={700}>
+                {formatMoneyWhole(totalSpent)}
+              </Text>
+            </Group>
+            <Box
+              style={{ height: 1, background: 'rgba(255,255,255,0.1)' }}
+            />
+            <Group justify="space-between">
+              <Text size="sm" fw={600}>
+                {netSavings >= 0 ? 'Net saved' : 'Net over'}
+              </Text>
+              <Text size="sm" fw={800} c={netSavings >= 0 ? 'teal' : 'red'}>
+                {formatMoneyWhole(Math.abs(netSavings))}
+              </Text>
+            </Group>
+          </Stack>
+        </NavyCard>
+      )}
+
+      {/* Flat category list */}
+      <NavyCard>
+        <SectionHeader label="By category" />
+        <Stack gap="md">
+          {rows.length === 0 && (
+            <Text size="sm" c="dimmed">
+              No budget set. Tap Edit Budgets to set limits.
+            </Text>
+          )}
+          {rows.map((row) => {
+            const cat = getCategoryInfo(row.category)
+            return (
+              <Box key={row.category}>
+                <Group gap="md" wrap="nowrap" mb={4}>
+                  <Text style={{ fontSize: 18, width: 24 }}>{cat.emoji}</Text>
+                  <Text size="sm" fw={600} style={{ flex: 1 }}>
+                    {cat.label}
+                  </Text>
+                  <Text size="xs" c={row.overBudget ? 'red' : 'dimmed'}>
+                    {formatMoneyWhole(row.spent)} /{' '}
+                    {formatMoneyWhole(row.budget)}
+                  </Text>
+                  {row.overBudget && (
+                    <Badge variant="urgent">{STRINGS.OVER}</Badge>
+                  )}
+                  {row.goalMet && <Badge variant="done">✓</Badge>}
+                </Group>
+                <Progress
+                  value={Math.min(row.ratio * 100, 100)}
+                  color={
+                    row.overBudget ? 'red' : row.goalMet ? 'green' : 'teal'
+                  }
+                  bg="rgba(255,255,255,0.1)"
+                  radius="xl"
+                  size="xs"
+                />
+              </Box>
+            )
+          })}
+        </Stack>
+      </NavyCard>
     </Stack>
   )
 }

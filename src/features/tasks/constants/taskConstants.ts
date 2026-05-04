@@ -32,7 +32,6 @@ export const PERSONAL_ADD_TYPES: TaskType[] = [
   'living',
   'growth',
   'goal_task',
-  'event',
 ]
 
 // Use these instead of raw strings throughout the app
@@ -47,7 +46,6 @@ export const TASK_TYPE = {
   LIVING: 'living',
   GROWTH: 'growth',
   GOAL_TASK: 'goal_task',
-  EVENT: 'event',
 } as const
 
 export const TYPE_COLOR: Record<TaskType, string> = {
@@ -61,7 +59,6 @@ export const TYPE_COLOR: Record<TaskType, string> = {
   living: 'pink',
   growth: 'teal',
   goal_task: 'blue',
-  event: 'blue',
 }
 
 export const TYPE_LABEL: Record<TaskType, string> = {
@@ -75,7 +72,6 @@ export const TYPE_LABEL: Record<TaskType, string> = {
   living: 'Living',
   growth: 'Growth',
   goal_task: 'Goal',
-  event: 'Event',
 }
 
 export const ALL_TYPES: TaskType[] = [
@@ -89,7 +85,6 @@ export const ALL_TYPES: TaskType[] = [
   'living',
   'growth',
   'goal_task',
-  'event',
 ]
 
 export const CADENCE_OPTIONS = ['none', 'daily', 'weekly', 'monthly'] as const
@@ -112,7 +107,6 @@ export const FILTER_TYPES: TaskType[] = [
   'living',
   'growth',
   'goal_task',
-  'event',
 ]
 
 export const ADD_MODAL_TYPES: TaskType[] = [
@@ -123,7 +117,6 @@ export const ADD_MODAL_TYPES: TaskType[] = [
   'living',
   'growth',
   'goal_task',
-  'event',
   'misc',
   'followup',
 ]

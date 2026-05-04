@@ -1,5 +1,27 @@
 import { supabase } from '../../../lib/supabase'
-import { Task } from '../types/task.types'
+import { Task, Sprint } from '../types/task.types'
+
+export async function fetchSprints(): Promise<Sprint[]> {
+  const { data, error } = await supabase.from('sprints').select('*').order('start_date', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function insertSprint(s: Omit<Sprint, 'id' | 'created_at'>): Promise<Sprint> {
+  const { data, error } = await supabase.from('sprints').insert(s).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateSprint(id: string, u: Partial<Sprint>): Promise<void> {
+  const { error } = await supabase.from('sprints').update(u).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteSprint(id: string): Promise<void> {
+  const { error } = await supabase.from('sprints').delete().eq('id', id)
+  if (error) throw error
+}
 
 export async function fetchAllTasks(): Promise<Task[]> {
   const { data, error } = await supabase

@@ -4,16 +4,15 @@ import {
   Stack,
   Text,
   TextInput,
-  SegmentedControl,
   Paper,
   UnstyledButton,
   Box,
   Group,
+  Button,
 } from '@mantine/core'
 import { useFinanceStore } from '../store/financeStore'
 import { dollarsToCents } from '../utils/moneyUtils'
 import { insertSplitwise } from '../services/splitwiseService'
-import { Button } from '@mantine/core'
 import { ROUTES } from '../../../app/routes'
 import { STRINGS } from '../../tasks/constants/strings'
 import { LogHeader } from './LogTypeSelector'
@@ -126,7 +125,7 @@ export function LogSplitwise() {
                       background:
                         direction === opt.value
                           ? 'var(--mantine-color-teal-light)'
-                          : 'var(--mantine-color-gray-0)',
+                          : 'var(--mantine-color-dark-6)',
                       border:
                         direction === opt.value
                           ? '2px solid var(--mantine-color-teal-4)'

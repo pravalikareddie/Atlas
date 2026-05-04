@@ -1,29 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { ItemRow,NavyCard,SectionHeader } from './FinanceDesign'
 import { useNavigate } from 'react-router-dom'
 import {
   Stack,
   Group,
   Text,
-  Paper,
-  SimpleGrid,
-  ActionIcon,
   UnstyledButton,
   Box,
-  Progress,
   Badge,
+  Paper,
+  Progress,
+  RingProgress,
+  Button,
 } from '@mantine/core'
 import { useFinanceStore } from '../store/financeStore'
 import { useNeedsAttention } from '../hooks/useNeedsAttention'
 import { useBudgetSummary } from '../hooks/useBudgetSummary'
-import {
-  formatMonthDisplay,
-  daysLeftInMonth,
-  formatDateShort,
-} from '../utils/dateUtils'
+import { formatMonthDisplay, daysLeftInMonth } from '../utils/dateUtils'
 import { formatMoneyWhole } from '../utils/moneyUtils'
-import { getCategoryInfo, BUDGET_GROUPS } from '../constants/categories'
-import { deleteExpense as deleteExpenseDb } from '../services/expenseService'
-import { Button } from '@mantine/core'
+import { getCategoryInfo } from '../constants/categories'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
 import { ROUTES } from '../../../app/routes'
 import {
@@ -34,24 +29,31 @@ import {
 import { useTaskData } from '../../tasks/hooks/useTaskData'
 import { useTaskStore } from '../../tasks/store/taskStore'
 import { useTaskActions } from '../../tasks/hooks/useTaskActions'
-import { CaretRight, Plus, Trash, Warning } from '@phosphor-icons/react'
+import { CaretRight, Warning } from '@phosphor-icons/react'
 import { format, parseISO } from 'date-fns'
 import { STRINGS } from '../../tasks/constants/strings'
+import { INCOME_CATEGORY } from '../constants/categories'
+
 export function FinanceOverview() {
   useTaskData()
   const { currentMonth, loading } = useFinanceStore()
   const tasks = useTaskStore((s) => s.tasks)
-  const {
-    create: createTask,
-    update: updateTask,
-    remove: removeTask,
-  } = useTaskActions()
+  const { update: updateTask } = useTaskActions()
   const attention = useNeedsAttention()
+  const { updateBudget } = useFinanceStore()
+
+  function handleAcknowledge(id: string) {
+    updateBudget(id, { overspend_acknowledged: true })
+    import('../services/budgetService').then(({ updateBudget: db }) =>
+      db(id, { overspend_acknowledged: true }).catch(() => {}),
+    )
+  }
+
   const { rows, totalSpent, totalBudget, totalSaved, savingsGoal } =
     useBudgetSummary()
   const navigate = useNavigate()
 
-  const left = totalBudget - totalSpent
+  const left = Math.max(0, totalBudget - totalSpent)
   const daysLeft = daysLeftInMonth()
   const savingsHit = totalSaved >= savingsGoal
   const spentRatio = totalBudget > 0 ? totalSpent / totalBudget : 0
@@ -68,107 +70,44 @@ export function FinanceOverview() {
 
   return (
     <Stack gap="lg">
-      {/* Hero card */}
-      <Box
-        p="xl"
-        style={{
-          background:
-            'linear-gradient(135deg, var(--mantine-color-teal-6), var(--mantine-color-blue-5))',
-          borderRadius: 'var(--mantine-radius-xl)',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <Box>
-            <Text
-              size="xs"
-              fw={600}
-              c="white"
-              tt="uppercase"
-              opacity={0.8}
-              mb={4}
-            >
-              {formatMonthDisplay(currentMonth)} · {daysLeft}{' '}
-              {STRINGS.DAYS_LEFT}
-            </Text>
-            <Text fw={800} c="white" style={{ fontSize: 36 }}>
-              {formatMoneyWhole(left > 0 ? left : 0)}
-            </Text>
-            <Text size="sm" c="white" opacity={0.75} mt={4}>
-              {STRINGS.STILL_YOURS} · {STRINGS.OF}{' '}
-              {formatMoneyWhole(totalBudget)}
-            </Text>
+      {/* Hero */}
+      {/* Money rings */}
+      <Paper p="lg" radius="lg" withBorder>
+        <Group justify="space-around">
+          <Box ta="center">
+            <RingProgress size={64} thickness={5} roundCaps sections={[{ value: 100, color: 'teal' }]}
+              label={<Text ta="center" style={{ fontSize: 20 }}>💰</Text>} />
+            <Text size="sm" fw={700} mt={4}>{formatMoneyWhole(totalBudget)}</Text>
+            <Text size="xs" c="dimmed">Budget</Text>
           </Box>
-          <Button
-            variant="white"
-            color="teal"
-            radius="xl"
-            size="sm"
-            leftSection={<Plus size={14} />}
-            onClick={() => navigate(ROUTES.FINANCE_LOG)}
-          >
-            {STRINGS.LOG}
-          </Button>
+          <Box ta="center">
+            <RingProgress size={64} thickness={5} roundCaps
+              sections={[{ value: Math.min(spentRatio * 100, 100), color: spentRatio > 1 ? 'red' : 'orange' }]}
+              label={<Text ta="center" style={{ fontSize: 20 }}>🔥</Text>} />
+            <Text size="sm" fw={700} mt={4}>{formatMoneyWhole(totalSpent)}</Text>
+            <Text size="xs" c="dimmed">{totalBudget > 0 ? `${Math.round(spentRatio * 100)}%` : ''} Spent</Text>
+          </Box>
+          <Box ta="center">
+            <RingProgress size={64} thickness={5} roundCaps
+              sections={[{ value: totalBudget > 0 ? Math.max((left / totalBudget) * 100, 0) : 0, color: 'green' }]}
+              label={<Text ta="center" style={{ fontSize: 20 }}>✅</Text>} />
+            <Text size="sm" fw={700} mt={4}>{formatMoneyWhole(left)}</Text>
+            <Text size="xs" c="dimmed">{totalBudget > 0 ? `${Math.round((left / totalBudget) * 100)}%` : ''} Left</Text>
+          </Box>
+          <Box ta="center">
+            <RingProgress size={64} thickness={5} roundCaps
+              sections={[{ value: savingsGoal > 0 ? Math.min((totalSaved / savingsGoal) * 100, 100) : (totalSaved > 0 ? 100 : 0), color: 'violet' }]}
+              label={<Text ta="center" style={{ fontSize: 20 }}>🏦</Text>} />
+            <Text size="sm" fw={700} mt={4}>{formatMoneyWhole(totalSaved)}</Text>
+            <Text size="xs" c="dimmed">{savingsHit ? '✅ Goal hit' : `of ${formatMoneyWhole(savingsGoal)}`}</Text>
+          </Box>
         </Group>
-
-        <Box mt="md">
-          <Group justify="space-between" mb={4}>
-            <Text size="xs" c="white" opacity={0.7}>
-              {formatMoneyWhole(totalSpent)} {STRINGS.SPENT}
-            </Text>
-            <Text size="xs" c="white" opacity={0.7}>
-              {Math.round(spentRatio * 100)}%
-            </Text>
-          </Group>
-          <Progress
-            value={spentRatio * 100}
-            color={
-              spentRatio > 0.9 ? 'red' : spentRatio > 0.7 ? 'yellow' : 'white'
-            }
-            bg="rgba(255,255,255,0.2)"
-            radius="xl"
-            size="sm"
-          />
-        </Box>
-      </Box>
-
-      {/* Stats row */}
-      <SimpleGrid cols={2} spacing="md">
-        <Paper p="lg" radius="xl" withBorder>
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="xs">
-            {STRINGS.SPENT_THIS_MONTH}
-          </Text>
-          <Text fw={800} size="xl" c="var(--mantine-color-text)">
-            {formatMoneyWhole(totalSpent)}
-          </Text>
-        </Paper>
-        <Paper p="lg" radius="xl" withBorder>
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="xs">
-            {STRINGS.SET_ASIDE} 💚
-          </Text>
-          <Text
-            fw={800}
-            size="xl"
-            c={savingsHit ? 'green' : 'var(--mantine-color-text)'}
-          >
-            {formatMoneyWhole(totalSaved)}
-          </Text>
-          <Text size="xs" c={savingsHit ? 'green' : 'dimmed'} mt={4}>
-            {savingsHit
-              ? STRINGS.GOAL_REACHED
-              : `${STRINGS.GOAL} ${formatMoneyWhole(savingsGoal)}`}
-          </Text>
-        </Paper>
-      </SimpleGrid>
+      </Paper>
 
       {/* Needs attention */}
       {attention.length > 0 && (
-        <Paper
-          p="md"
-          radius="xl"
-          withBorder
-          style={{ borderColor: 'var(--mantine-color-orange-3)' }}
-        >
-          <Group gap="xs" mb="sm">
+        <NavyCard>
+          <Group gap="md" mb="sm">
             <Warning
               size={16}
               color="var(--mantine-color-orange-5)"
@@ -178,58 +117,65 @@ export function FinanceOverview() {
               {STRINGS.NEEDS_ATTENTION} · {attention.length}
             </Text>
           </Group>
-          <Stack gap="xs">
+          <Stack gap="md">
             {attention.map((item) => (
               <Group
                 key={item.id}
-                gap="sm"
-                p="xs"
+                gap="md"
+                p="md"
                 style={{
                   borderRadius: 'var(--mantine-radius-lg)',
-                  background: 'var(--mantine-color-orange-0)',
-                  cursor: 'pointer',
+                  background: 'var(--mantine-color-orange-light)',
                 }}
-                onClick={() => navigate(item.route)}
               >
                 <Text size="xs">⚠️</Text>
                 <Text size="sm" style={{ flex: 1 }}>
                   {item.text}
                 </Text>
-                <CaretRight size={14} color="var(--mantine-color-dimmed)" />
+                {item.type === 'over_budget' ? (
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    variant="light"
+                    color="orange"
+                    onClick={() => handleAcknowledge(item.id)}
+                  >
+                    Got it
+                  </Button>
+                ) : (
+                  <CaretRight
+                    size={14}
+                    color="var(--mantine-color-dimmed)"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(item.route)}
+                  />
+                )}
               </Group>
             ))}
           </Stack>
-        </Paper>
+        </NavyCard>
       )}
 
       {/* Finance tasks */}
       {financeTasks.length > 0 && (
-        <Paper p="lg" radius="xl" withBorder>
-          <Group justify="space-between" mb="sm">
-            <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-              {STRINGS.FINANCE_TODOS}
-            </Text>
-            <Button
-              variant="subtle"
-              color="teal"
-              size="xs"
-              radius="xl"
-              onClick={() => navigate(ROUTES.TASKS)}
-            >
-              {STRINGS.VIEW_ALL}
-            </Button>
-          </Group>
-          <Stack gap="xs">
-            {financeTasks.slice(0, 5).map((t) => (
-              <Group
-                key={t.id}
-                gap="sm"
-                p="xs"
-                style={{
-                  borderRadius: 'var(--mantine-radius-lg)',
-                  background: 'var(--mantine-color-gray-0)',
-                }}
+        <NavyCard>
+          <SectionHeader
+            label={STRINGS.FINANCE_TODOS}
+            right={
+              <Button
+                variant="subtle"
+                color="teal"
+                size="xs"
+                radius="xl"
+                onClick={() => navigate(ROUTES.TASKS)}
               >
+                {STRINGS.VIEW_ALL}
+              </Button>
+            }
+          />
+          <Stack gap="md">
+            {financeTasks.slice(0, 5).map((t) => (
+              <ItemRow key={t.id}>
                 <UnstyledButton
                   onClick={() =>
                     updateTask(t.id, {
@@ -256,34 +202,36 @@ export function FinanceOverview() {
                     {format(parseISO(t.due_date), DATE_FORMAT.SHORT)}
                   </Text>
                 )}
-              </Group>
+              </ItemRow>
             ))}
           </Stack>
-        </Paper>
+        </NavyCard>
       )}
 
-      {/* Budget groups */}
-      {BUDGET_GROUPS.map((group) => {
-        const gr = rows.filter((r) => r.group === group.key)
-        if (!gr.length) return null
-        const groupSpent = gr.reduce((s, r) => s + r.spent, 0)
-        const groupBudget = gr.reduce((s, r) => s + r.budget, 0)
-
-        return (
-          <Paper key={group.key} p="lg" radius="xl" withBorder>
-            <Group justify="space-between" mb="md">
-              <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-                {group.label}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {formatMoneyWhole(groupSpent)} / {formatMoneyWhole(groupBudget)}
-              </Text>
-            </Group>
-            <Stack gap="sm">
-              {gr.map((row) => {
+      {/* Budget rows — flat, no groups */}
+      {rows.filter((r) => r.category !== INCOME_CATEGORY).length > 0 && (
+        <NavyCard>
+          <SectionHeader
+            label="Budget"
+            right={
+              <Button
+                variant="subtle"
+                color="teal"
+                size="xs"
+                radius="xl"
+                onClick={() => navigate(ROUTES.FINANCE_BUDGETS)}
+              >
+                {STRINGS.VIEW_ALL}
+              </Button>
+            }
+          />
+          <Stack gap="md">
+            {rows
+              .filter((r) => r.category !== INCOME_CATEGORY)
+              .map((row) => {
                 const cat = getCategoryInfo(row.category)
                 return (
-                  <Group key={row.category} gap="sm" wrap="nowrap">
+                  <Group key={row.category} gap="md" wrap="nowrap">
                     <Text w={20}>{cat.emoji}</Text>
                     <Text size="sm" w={90} truncate>
                       {cat.label}
@@ -298,7 +246,7 @@ export function FinanceOverview() {
                               ? 'green'
                               : 'teal'
                         }
-                        bg="var(--mantine-color-gray-2)"
+                        bg="rgba(255,255,255,0.1)"
                         radius="xl"
                         size="sm"
                       />
@@ -319,126 +267,14 @@ export function FinanceOverview() {
                   </Group>
                 )
               })}
-            </Stack>
-          </Paper>
-        )
-      })}
+          </Stack>
+        </NavyCard>
+      )}
 
-      <RecentExpenses />
+      {/* Month info */}
+      <Text size="xs" c="dimmed" ta="center">
+        {formatMonthDisplay(currentMonth)} · {daysLeft} {STRINGS.DAYS_LEFT}
+      </Text>
     </Stack>
-  )
-}
-
-function RecentExpenses() {
-  const { expenses, currentMonth, removeExpense } = useFinanceStore()
-  const navigate = useNavigate()
-  const [confirmId, setConfirmId] = useState<string | null>(null)
-
-  const recent = useMemo(
-    () => expenses.filter((e) => e.month === currentMonth).slice(0, 8),
-    [expenses, currentMonth],
-  )
-
-  if (!recent.length) return null
-
-  async function handleDelete(id: string) {
-    removeExpense(id)
-    try {
-      await deleteExpenseDb(id)
-    } catch {}
-    setConfirmId(null)
-  }
-
-  return (
-    <Paper p="lg" radius="xl" withBorder>
-      <Group justify="space-between" mb="sm">
-        <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-          {STRINGS.RECENT_EXPENSES}
-        </Text>
-        <Button
-          variant="subtle"
-          color="teal"
-          size="xs"
-          radius="xl"
-          onClick={() => navigate(ROUTES.FINANCE_LOG)}
-        >
-          {STRINGS.VIEW_ALL}
-        </Button>
-      </Group>
-      <Stack gap="xs">
-        {recent.map((e) => {
-          const cat = getCategoryInfo(e.category)
-          if (confirmId === e.id) {
-            return (
-              <Group
-                key={e.id}
-                justify="space-between"
-                p="xs"
-                style={{
-                  borderRadius: 'var(--mantine-radius-lg)',
-                  background: 'var(--mantine-color-red-0)',
-                }}
-              >
-                <Text size="sm">{STRINGS.CONFIRM_DELETE_EXPENSE}</Text>
-                <Group gap="xs">
-                  <Button
-                    variant="filled"
-                    color="red"
-                    size="xs"
-                    radius="xl"
-                    onClick={() => handleDelete(e.id)}
-                  >
-                    {STRINGS.YES}
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="xs"
-                    radius="xl"
-                    onClick={() => setConfirmId(null)}
-                  >
-                    {STRINGS.NO}
-                  </Button>
-                </Group>
-              </Group>
-            )
-          }
-          return (
-            <Group
-              key={e.id}
-              gap="sm"
-              p="xs"
-              style={{ borderRadius: 'var(--mantine-radius-lg)' }}
-            >
-              <Text style={{ fontSize: 18 }}>{cat.emoji}</Text>
-              <Box style={{ flex: 1 }}>
-                <Text size="sm" fw={600}>
-                  {cat.label}
-                </Text>
-                {e.note && (
-                  <Text size="xs" c="dimmed">
-                    {e.note}
-                  </Text>
-                )}
-              </Box>
-              <Text size="sm" fw={700}>
-                {formatMoneyWhole(e.amount)}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {formatDateShort(e.logged_at)}
-              </Text>
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                size="xs"
-                onClick={() => setConfirmId(e.id)}
-                aria-label={STRINGS.DELETE}
-              >
-                <Trash size={12} />
-              </ActionIcon>
-            </Group>
-          )
-        })}
-      </Stack>
-    </Paper>
   )
 }

@@ -3,11 +3,11 @@ import { format, parseISO, isToday } from 'date-fns'
 import {
   Group,
   Text,
-  UnstyledButton,
   Stack,
   Collapse,
   ActionIcon,
   Box,
+  Badge,
 } from '@mantine/core'
 import { Task } from '../types/task.types'
 import {
@@ -16,10 +16,11 @@ import {
   TASK_STATUS,
   TYPE_COLOR,
 } from '../constants/taskConstants'
-import { Badge } from '@mantine/core'
 import { STRINGS } from '../constants/strings'
-import { CaretDownIcon, CaretRightIcon, Check } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { TypeBadge } from './TypeBadge'
+import { COLORS, RADIUS_PILL } from '../../../shared/constants/styles'
+import { TaskCheckbox } from '../../../shared/components/TaskCheckbox'
 interface Props {
   task: Task
   subtasks?: Task[]
@@ -53,8 +54,8 @@ export function TaskRow({
         wrap="nowrap"
         style={{
           borderRadius: 'var(--mantine-radius-lg)',
-          background: 'var(--mantine-color-gray-0)',
-          border: '1px solid var(--mantine-color-gray-1)',
+          background: 'var(--mantine-color-body)',
+          border: `1px solid ${COLORS.WHITE_07}`,
           opacity: isDone ? 0.55 : 1,
           transition: 'all 0.2s ease',
         }}
@@ -63,7 +64,7 @@ export function TaskRow({
           w={4}
           style={{
             alignSelf: 'stretch',
-            borderRadius: 9999,
+            borderRadius: RADIUS_PILL,
             backgroundColor: isDone
               ? 'var(--mantine-color-green-5)'
               : `var(--mantine-color-${TYPE_COLOR[task.type]}-5)`,
@@ -73,37 +74,18 @@ export function TaskRow({
           }}
         />
 
-        <UnstyledButton
-          onClick={(e) => {
-            e.stopPropagation()
-            isDone ? onUndo?.() : onDone()
-          }}
-          w={20}
-          h={20}
-          style={{
-            borderRadius: '50%',
-            flexShrink: 0,
-            border: isDone
-              ? 'none'
-              : `2px solid var(--mantine-color-${TYPE_COLOR[task.type]}-4)`,
-            backgroundColor: isDone
-              ? 'var(--mantine-color-green-5)'
-              : 'transparent',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          {isDone && <Check size={10} color="white" weight="bold" />}
-        </UnstyledButton>
+        <TaskCheckbox
+          done={isDone}
+          onToggle={() => (isDone ? onUndo?.() : onDone())}
+          color={TYPE_COLOR[task.type]}
+        />
 
         <Text
           size="sm"
           fw={500}
           style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
           td={isDone ? 'line-through' : undefined}
-          c={isDone ? 'dimmed' : 'var(--mantine-color-text)'}
+          c={isDone ? 'dimmed' : undefined}
           truncate
           onClick={onTap}
         >
@@ -119,7 +101,7 @@ export function TaskRow({
         )}
 
         {!isDone && task.due_date && !isToday(parseISO(task.due_date)) && (
-          <Text size="xs" c="dimmed">
+          <Text size="xs">
             {format(parseISO(task.due_date), DATE_FORMAT.SHORT)}
           </Text>
         )}
@@ -130,7 +112,7 @@ export function TaskRow({
 
         {hasSubs && (
           <Group gap={4}>
-            <Text size="xs" c="dimmed">
+            <Text size="xs">
               {doneCount}/{subtasks.length}
             </Text>
             <ActionIcon
@@ -184,42 +166,30 @@ function SubtaskRow({
       py={7}
       px={8}
       style={{
-        borderLeft: '2px solid var(--mantine-color-gray-2)',
+        borderLeft: `2px solid ${COLORS.WHITE_10}`,
         marginLeft: 8,
         opacity: isDone ? 0.45 : isCurrent ? 1 : 0.75,
         transition: 'opacity 0.2s ease',
       }}
     >
-      <UnstyledButton
-        onClick={isDone ? onUndo : onDone}
-        w={14}
-        h={14}
-        style={{
-          borderRadius: '50%',
-          flexShrink: 0,
-          border: isDone ? 'none' : `1.5px solid var(--mantine-color-gray-4)`,
-          backgroundColor: isDone
-            ? 'var(--mantine-color-green-5)'
-            : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {isDone && <Check size={8} color="white" weight="bold" />}
-      </UnstyledButton>
+      <TaskCheckbox
+        done={isDone}
+        onToggle={isDone ? onUndo : onDone}
+        size={14}
+        color="gray"
+      />
 
       <Text
         size="xs"
         td={isDone ? 'line-through' : undefined}
-        c={isDone ? 'dimmed' : isCurrent ? 'teal' : 'var(--mantine-color-text)'}
+        c={isDone ? 'dimmed' : isCurrent ? 'teal' : undefined}
         style={{ flex: 1 }}
       >
         {subtask.title}
       </Text>
 
       {!isDone && subtask.due_date && !isToday(parseISO(subtask.due_date)) && (
-        <Text size="xs" c="dimmed">
+        <Text size="xs">
           {format(parseISO(subtask.due_date), DATE_FORMAT.SHORT)}
         </Text>
       )}

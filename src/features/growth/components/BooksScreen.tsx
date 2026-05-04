@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Badge,
   Box,
+  Button,
   Divider,
   Group,
   Menu,
@@ -11,15 +12,12 @@ import {
   Stack,
   Text,
   TextInput,
-  UnstyledButton,
 } from '@mantine/core'
 import { useState } from 'react'
 import { useGrowthStore } from '../store/growthStore'
 import * as svc from '../services/growthService'
-import { Button } from '@mantine/core'
 import { EmptyState } from '../../../shared/components/EmptyState'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
-import { ProgressBar } from '../../../shared/components/ProgressBar'
 import { USER_ID } from '../../tasks/constants/taskConstants'
 import { STRINGS } from '../../tasks/constants/strings'
 import { Book } from '../types/growth.types'
@@ -30,199 +28,26 @@ import {
   Plus,
   Trash,
 } from '@phosphor-icons/react'
-const BOOK_STATUS = {
-  WANT: 'want',
-  READING: 'reading',
-  DONE: 'done',
-} as const
+import {
+  BOOK_STATUS,
+  BOOK_STATUS_EMOJI,
+  BOOK_STATUS_LABEL,
+  BookStatusType,
+  GROWTH_STRINGS,
+  YEARLY_BOOK_GOAL,
+} from '../constants'
+import { SortableList } from '../../../shared/components/SortableList'
+import { persistOrder } from '../../../shared/utils/persistOrder'
 
-type BookStatusType = (typeof BOOK_STATUS)[keyof typeof BOOK_STATUS]
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const BOOK_STATUS_LABEL: Record<BookStatusType, string> = {
-  want: 'Want to read',
-  reading: 'Reading',
-  done: 'Done',
+function formatTargetMonth(ym: string): string {
+  const [y, m] = ym.split('-')
+  const date = new Date(parseInt(y), parseInt(m) - 1)
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-export function BooksScreen() {
-  const { books, addBook, updateBook, removeBook, loading } = useGrowthStore()
-  const [showAdd, setShowAdd] = useState(false)
-  const [editBook, setEditBook] = useState<Book | null>(null)
-
-  const year = new Date().getFullYear()
-  const yearBooks = books.filter((b) => b.year === year)
-  const reading = yearBooks.filter((b) => b.status === BOOK_STATUS.READING)
-  const want = yearBooks.filter((b) => b.status === BOOK_STATUS.WANT)
-  const done = yearBooks.filter((b) => b.status === BOOK_STATUS.DONE)
-
-  if (loading) return <SkeletonRow count={6} />
-
-  async function handleSave(d: {
-    title: string
-    author: string | null
-    status: BookStatusType
-  }) {
-    if (editBook) {
-      updateBook(editBook.id, d)
-      try {
-        await svc.updateBook(editBook.id, d)
-      } catch {}
-      setEditBook(null)
-    } else {
-      const row = {
-        user_id: USER_ID,
-        title: d.title,
-        author: d.author,
-        status: d.status,
-        year,
-        order_index: yearBooks.length,
-      }
-      try {
-        const r = await svc.insertBook(row)
-        addBook(r)
-      } catch {
-        addBook({
-          ...row,
-          id: crypto.randomUUID(),
-          created_at: new Date().toISOString(),
-        })
-      }
-      setShowAdd(false)
-    }
-  }
-
-  async function handleStart(id: string) {
-    updateBook(id, { status: BOOK_STATUS.READING })
-    try {
-      await svc.updateBook(id, { status: BOOK_STATUS.READING })
-    } catch {}
-  }
-
-  async function handleDone(id: string) {
-    updateBook(id, { status: BOOK_STATUS.DONE })
-    try {
-      await svc.updateBook(id, { status: BOOK_STATUS.DONE })
-    } catch {}
-  }
-
-  async function handleDelete(id: string) {
-    removeBook(id)
-    try {
-      await svc.deleteBook(id)
-    } catch {}
-  }
-
-  return (
-    <Stack gap="lg">
-      {/* Header */}
-      <Paper p="lg" radius="xl" withBorder>
-        <Group justify="space-between" align="center" mb="sm">
-          <Group gap="xs">
-            <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-              {STRINGS.BOOKS} · {year}
-            </Text>
-            <Badge variant="light" color="teal" size="sm">
-              {done.length}/52
-            </Badge>
-          </Group>
-          <Button
-            variant="light"
-            color="teal"
-            radius="xl"
-            size="sm"
-            leftSection={<Plus size={14} />}
-            onClick={() => setShowAdd(true)}
-          >
-            {STRINGS.ADD_BOOK}
-          </Button>
-        </Group>
-        <Progress
-          value={(done.length / 52) * 100}
-          color="teal"
-          radius="xl"
-          size="md"
-          bg="var(--mantine-color-gray-2)"
-        />
-        <Text size="xs" c="dimmed" mt={6}>
-          {52 - done.length} {STRINGS.BOOKS_REMAINING}
-        </Text>
-      </Paper>
-
-      {/* Empty state */}
-      {!yearBooks.length && <EmptyState message={STRINGS.BOOKS_EMPTY} />}
-
-      {/* Reading now */}
-      {reading.length > 0 && (
-        <Stack gap="sm">
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-            {STRINGS.READING_NOW}
-          </Text>
-          {reading.map((b) => (
-            <BookRow
-              key={b.id}
-              book={b}
-              onDone={() => handleDone(b.id)}
-              onEdit={() => setEditBook(b)}
-              onDelete={() => handleDelete(b.id)}
-            />
-          ))}
-        </Stack>
-      )}
-
-      {/* Want to read */}
-      {want.length > 0 && (
-        <Stack gap="sm">
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-            {STRINGS.WANT_TO_READ}
-          </Text>
-          {want.map((b) => (
-            <BookRow
-              key={b.id}
-              book={b}
-              onStart={() => handleStart(b.id)}
-              onEdit={() => setEditBook(b)}
-              onDelete={() => handleDelete(b.id)}
-            />
-          ))}
-        </Stack>
-      )}
-
-      {/* Done */}
-      {done.length > 0 && (
-        <Stack gap="sm">
-          <Group gap="xs">
-            <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-              {STRINGS.DONE}
-            </Text>
-            <Badge variant="light" color="green" size="xs">
-              {done.length}
-            </Badge>
-          </Group>
-          {done.map((b) => (
-            <BookRow
-              key={b.id}
-              book={b}
-              onEdit={() => setEditBook(b)}
-              onDelete={() => handleDelete(b.id)}
-            />
-          ))}
-        </Stack>
-      )}
-
-      {/* Add/Edit modal */}
-      {(showAdd || editBook) && (
-        <BookFormModal
-          initial={editBook ?? undefined}
-          onSave={handleSave}
-          onClose={() => {
-            setShowAdd(false)
-            setEditBook(null)
-          }}
-        />
-      )}
-    </Stack>
-  )
-}
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 interface BookRowProps {
   book: Book
@@ -235,33 +60,30 @@ interface BookRowProps {
 function BookRow({ book, onStart, onDone, onEdit, onDelete }: BookRowProps) {
   const isDone = book.status === BOOK_STATUS.DONE
   const isReading = book.status === BOOK_STATUS.READING
+  const bgColor = isDone
+    ? 'var(--mantine-color-green-light)'
+    : isReading
+      ? 'var(--mantine-color-teal-light)'
+      : 'rgba(255,255,255,0.1)'
 
   return (
     <Paper p="md" radius="xl" withBorder>
       <Group gap="md" wrap="nowrap">
-        {/* Status indicator */}
         <Box
           w={40}
           h={40}
           style={{
             borderRadius: 'var(--mantine-radius-lg)',
-            background: isDone
-              ? 'var(--mantine-color-green-light)'
-              : isReading
-                ? 'var(--mantine-color-teal-light)'
-                : 'var(--mantine-color-gray-1)',
+            background: bgColor,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <Text style={{ fontSize: 18 }}>
-            {isDone ? '✅' : isReading ? '📖' : '📚'}
-          </Text>
+          <Text fz={18}>{BOOK_STATUS_EMOJI[book.status]}</Text>
         </Box>
 
-        {/* Info */}
         <Box style={{ flex: 1, minWidth: 0 }}>
           <Text
             fw={700}
@@ -273,14 +95,20 @@ function BookRow({ book, onStart, onDone, onEdit, onDelete }: BookRowProps) {
           >
             {book.title}
           </Text>
-          {book.author && (
-            <Text size="xs" c="dimmed">
-              {book.author}
-            </Text>
-          )}
+          <Group gap="xs">
+            {book.author && (
+              <Text size="xs" c="dimmed">
+                {book.author}
+              </Text>
+            )}
+            {book.target_month && !isDone && (
+              <Text size="xs" c="dimmed">
+                · {GROWTH_STRINGS.DUE} {formatTargetMonth(book.target_month)}
+              </Text>
+            )}
+          </Group>
         </Box>
 
-        {/* Actions */}
         <Group gap="xs" wrap="nowrap">
           {onStart && (
             <Button
@@ -334,13 +162,16 @@ function BookRow({ book, onStart, onDone, onEdit, onDelete }: BookRowProps) {
   )
 }
 
+interface BookFormData {
+  title: string
+  author: string | null
+  status: BookStatusType
+  target_month: string | null
+}
+
 interface BookFormModalProps {
   initial?: Book
-  onSave: (d: {
-    title: string
-    author: string | null
-    status: BookStatusType
-  }) => void
+  onSave: (d: BookFormData) => void
   onClose: () => void
 }
 
@@ -350,6 +181,7 @@ function BookFormModal({ initial, onSave, onClose }: BookFormModalProps) {
   const [status, setStatus] = useState<BookStatusType>(
     initial?.status ?? BOOK_STATUS.WANT,
   )
+  const [targetMonth, setTargetMonth] = useState(initial?.target_month ?? '')
   const [err, setErr] = useState(false)
 
   function submit() {
@@ -357,7 +189,12 @@ function BookFormModal({ initial, onSave, onClose }: BookFormModalProps) {
       setErr(true)
       return
     }
-    onSave({ title: title.trim(), author: author || null, status })
+    onSave({
+      title: title.trim(),
+      author: author || null,
+      status,
+      target_month: targetMonth || null,
+    })
   }
 
   return (
@@ -386,6 +223,13 @@ function BookFormModal({ initial, onSave, onClose }: BookFormModalProps) {
           label={STRINGS.AUTHOR_OPTIONAL}
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
+          radius="lg"
+        />
+        <TextInput
+          label={GROWTH_STRINGS.TARGET_MONTH_OPTIONAL}
+          type="month"
+          value={targetMonth}
+          onChange={(e) => setTargetMonth(e.target.value)}
           radius="lg"
         />
         <Box>
@@ -422,5 +266,186 @@ function BookFormModal({ initial, onSave, onClose }: BookFormModalProps) {
         </Group>
       </Stack>
     </Modal>
+  )
+}
+
+// ─── Book Section ─────────────────────────────────────────────────────────────
+
+function BookSection({
+  label,
+  books,
+  badge,
+  renderRow,
+  onReorder,
+}: {
+  label: string
+  books: Book[]
+  badge?: number
+  renderRow: (b: Book) => React.ReactNode
+  onReorder: (items: Book[]) => void
+}) {
+  if (!books.length) return null
+  return (
+    <Stack gap="sm">
+      <Group gap="xs">
+        <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+          {label}
+        </Text>
+        {badge !== undefined && (
+          <Badge variant="light" color="green" size="xs">
+            {badge}
+          </Badge>
+        )}
+      </Group>
+      <SortableList items={books} onReorder={onReorder} renderItem={renderRow} />
+    </Stack>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export function BooksScreen() {
+  const { books, addBook, updateBook, removeBook, loading } = useGrowthStore()
+  const [showAdd, setShowAdd] = useState(false)
+  const [editBook, setEditBook] = useState<Book | null>(null)
+
+  const year = new Date().getFullYear()
+  const yearBooks = books.filter((b) => b.year === year)
+  const reading = yearBooks.filter((b) => b.status === BOOK_STATUS.READING)
+  const want = yearBooks.filter((b) => b.status === BOOK_STATUS.WANT)
+  const done = yearBooks.filter((b) => b.status === BOOK_STATUS.DONE)
+
+  if (loading) return <SkeletonRow count={6} />
+
+  async function handleSave(d: BookFormData) {
+    if (editBook) {
+      updateBook(editBook.id, d)
+      try {
+        await svc.updateBook(editBook.id, d)
+      } catch {}
+      setEditBook(null)
+    } else {
+      const row = {
+        user_id: USER_ID,
+        title: d.title,
+        author: d.author,
+        status: d.status,
+        target_month: d.target_month,
+        year,
+        order_index: yearBooks.length,
+      }
+      try {
+        const r = await svc.insertBook(row)
+        addBook(r)
+      } catch {
+        addBook({
+          ...row,
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+        })
+      }
+      setShowAdd(false)
+    }
+  }
+
+  async function handleStatusChange(id: string, status: BookStatusType) {
+    updateBook(id, { status })
+    try {
+      await svc.updateBook(id, { status })
+    } catch {}
+  }
+
+  async function handleDelete(id: string) {
+    removeBook(id)
+    try {
+      await svc.deleteBook(id)
+    } catch {}
+  }
+
+  const makeRowProps = (b: Book) => ({
+    key: b.id,
+    book: b,
+    onEdit: () => setEditBook(b),
+    onDelete: () => handleDelete(b.id),
+  })
+
+  return (
+    <Stack gap="lg">
+      {/* Header */}
+      <Paper p="lg" radius="xl" withBorder>
+        <Group justify="space-between" align="center" mb="sm">
+          <Group gap="xs">
+            <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+              {STRINGS.BOOKS} · {year}
+            </Text>
+            <Badge variant="light" color="teal" size="sm">
+              {done.length}/{YEARLY_BOOK_GOAL}
+            </Badge>
+          </Group>
+          <Button
+            variant="light"
+            color="teal"
+            radius="xl"
+            size="sm"
+            leftSection={<Plus size={14} />}
+            onClick={() => setShowAdd(true)}
+          >
+            {STRINGS.ADD_BOOK}
+          </Button>
+        </Group>
+        <Progress
+          value={(done.length / YEARLY_BOOK_GOAL) * 100}
+          color="teal"
+          radius="xl"
+          size="md"
+          styles={{ root: { backgroundColor: 'rgba(255,255,255,0.1)' } }}
+        />
+        <Text size="xs" c="dimmed" mt={6}>
+          {YEARLY_BOOK_GOAL - done.length} {STRINGS.BOOKS_REMAINING}
+        </Text>
+      </Paper>
+
+      {!yearBooks.length && <EmptyState message={STRINGS.BOOKS_EMPTY} />}
+
+      <BookSection onReorder={(r) => persistOrder(r, (id, d) => updateBook(id, d), (id, d) => svc.updateBook(id, d))}
+        label={STRINGS.READING_NOW}
+        books={reading}
+        renderRow={(b) => (
+          <BookRow
+            {...makeRowProps(b)}
+            onDone={() => handleStatusChange(b.id, BOOK_STATUS.DONE)}
+          />
+        )}
+      />
+
+      <BookSection onReorder={(r) => persistOrder(r, (id, d) => updateBook(id, d), (id, d) => svc.updateBook(id, d))}
+        label={STRINGS.WANT_TO_READ}
+        books={want}
+        renderRow={(b) => (
+          <BookRow
+            {...makeRowProps(b)}
+            onStart={() => handleStatusChange(b.id, BOOK_STATUS.READING)}
+          />
+        )}
+      />
+
+      <BookSection onReorder={(r) => persistOrder(r, (id, d) => updateBook(id, d), (id, d) => svc.updateBook(id, d))}
+        label={STRINGS.DONE}
+        books={done}
+        badge={done.length}
+        renderRow={(b) => <BookRow {...makeRowProps(b)} />}
+      />
+
+      {(showAdd || editBook) && (
+        <BookFormModal
+          initial={editBook ?? undefined}
+          onSave={handleSave}
+          onClose={() => {
+            setShowAdd(false)
+            setEditBook(null)
+          }}
+        />
+      )}
+    </Stack>
   )
 }

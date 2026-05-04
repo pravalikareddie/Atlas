@@ -4,6 +4,8 @@ import { fetchDailyLogs } from '../services/dailyLogService'
 import { fetchAppointments } from '../services/appointmentService'
 import { fetchMedications } from '../services/medicationService'
 import { fetchHealthTodos } from '../services/healthTodoService'
+import { fetchMealPlans } from '../services/mealPlanService'
+import { fetchShoppingItems } from '../services/shoppingService'
 
 export function useHealthData() {
   const store = useHealthStore()
@@ -16,11 +18,15 @@ export function useHealthData() {
       fetchAppointments().catch(() => []),
       fetchMedications().catch(() => []),
       fetchHealthTodos().catch(() => []),
-    ]).then(([logs, appts, meds, todos]) => {
+      fetchMealPlans().catch(() => []),
+      fetchShoppingItems().catch(() => []),
+    ]).then(([logs, appts, meds, todos, meals, shopping]) => {
       store.setDailyLogs(logs)
       store.setAppointments(appts)
       store.setMedications(meds)
       store.setTodos(todos)
+      store.setMealPlans(meals)
+      store.setShoppingItems(shopping)
       store.setLoading(false)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

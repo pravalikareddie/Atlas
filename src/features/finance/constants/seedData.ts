@@ -8,9 +8,10 @@ import {
   FinanceTodo,
 } from '../types/finance.types'
 import { getCurrentMonth } from '../utils/dateUtils'
+import { USER_ID } from '../../tasks/constants/taskConstants'
 
 const month = getCurrentMonth()
-const uid = '00000000-0000-0000-0000-000000000001'
+const uid = USER_ID
 
 function id() {
   return crypto.randomUUID()

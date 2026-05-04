@@ -6,15 +6,14 @@ import {
   Text,
   TextInput,
   NumberInput,
-  SegmentedControl,
   Paper,
   Box,
   UnstyledButton,
+  Button,
 } from '@mantine/core'
 import { useFinanceStore } from '../store/financeStore'
 import { dollarsToCents } from '../utils/moneyUtils'
 import { insertSubscription } from '../services/subscriptionService'
-import { Button } from '@mantine/core'
 import { ROUTES } from '../../../app/routes'
 import { LogHeader } from './LogTypeSelector'
 import { USER_ID } from '../../tasks/constants/taskConstants'
@@ -110,7 +109,7 @@ export function LogSubscription() {
             <Text size="xs" fw={600} c="dimmed" mb="xs" tt="uppercase">
               {STRINGS.FIELD_RENEWS}
             </Text>
-            <Group gap="sm">
+            <Group gap="md">
               {[
                 { value: 'monthly', label: STRINGS.MONTHLY },
                 { value: 'yearly', label: STRINGS.YEARLY },
@@ -121,14 +120,14 @@ export function LogSubscription() {
                   style={{ flex: 1 }}
                 >
                   <Box
-                    p="sm"
+                    p="md"
                     style={{
                       borderRadius: 'var(--mantine-radius-lg)',
                       textAlign: 'center',
                       background:
                         period === opt.value
                           ? 'var(--mantine-color-teal-light)'
-                          : 'var(--mantine-color-gray-0)',
+                          : 'var(--mantine-color-dark-6)',
                       border:
                         period === opt.value
                           ? '2px solid var(--mantine-color-teal-4)'
@@ -149,7 +148,7 @@ export function LogSubscription() {
             </Group>
           </Box>
 
-          <Group align="flex-end" gap="sm">
+          <Group align="flex-end" gap="md">
             <Text size="sm" c="dimmed">
               {STRINGS.ON_THE}
             </Text>

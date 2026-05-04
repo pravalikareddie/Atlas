@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLivingStore } from '../store/livingStore'
 import * as svc from '../services/livingService'
+import { fetchWishlistItems } from '../services/wishlistService'
 
 export function useLivingData() {
   const store = useLivingStore()
@@ -13,12 +14,14 @@ export function useLivingData() {
       svc.fetchExperiences().catch(() => []),
       svc.fetchActivities().catch(() => []),
       svc.fetchLivingTodos().catch(() => []),
-    ]).then(([places, placeExps, experiences, activities, todos]) => {
+      fetchWishlistItems().catch(() => []),
+    ]).then(([places, placeExps, experiences, activities, todos, wishlist]) => {
       store.setPlaces(places)
       store.setPlaceExps(placeExps)
       store.setExperiences(experiences)
       store.setActivities(activities)
       store.setTodos(todos)
+      store.setWishlist(wishlist)
       store.setLoading(false)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

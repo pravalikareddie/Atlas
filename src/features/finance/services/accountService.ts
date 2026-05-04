@@ -1,51 +1,9 @@
-import { supabase } from '../../../lib/supabase'
-import { Account, Expense } from '../types/finance.types'
+import { createCrudService } from '../../../shared/services/crudFactory'
+import { Account } from '../types/finance.types'
 
-const TABLE = 'accounts'
+const svc = createCrudService<Account>('accounts', { orderBy: 'order_index', ascending: true })
 
-export async function fetchAccounts(): Promise<Account[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('*')
-    .order('created_at', { ascending: true })
-  if (error) throw new Error(error.message)
-  return data ?? []
-}
-
-export async function insertAccount(
-  account: Omit<Account, 'id' | 'created_at'>,
-): Promise<Account> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .insert(account)
-    .select()
-    .single()
-  if (error) throw new Error(error.message)
-  return data
-}
-
-export async function deleteAccount(id: string): Promise<void> {
-  const { error } = await supabase.from(TABLE).delete().eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function updateAccount(
-  id: string,
-  updates: Partial<Account>,
-): Promise<void> {
-  const { error } = await supabase.from(TABLE).update(updates).eq('id', id)
-  if (error) throw new Error(error.message)
-}
-
-export async function updateExpenseDb(
-  id: string,
-  updates: Partial<Expense>,
-): Promise<void> {
-  const { error } = await supabase.from('expenses').update(updates).eq('id', id)
-  if (error) throw error
-}
-
-export async function deleteExpenseDb(id: string): Promise<void> {
-  const { error } = await supabase.from('expenses').delete().eq('id', id)
-  if (error) throw error
-}
+export const fetchAccounts = svc.fetchAll
+export const insertAccount = svc.insert
+export const updateAccount = svc.update
+export const deleteAccount = svc.remove

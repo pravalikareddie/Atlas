@@ -1,8 +1,9 @@
-import { Paper, Stack, Group, Text, UnstyledButton } from '@mantine/core'
+import { Paper, Stack, Group, Text , Badge } from '@mantine/core'
 import { Task } from '../types/task.types'
 import { formatAge } from '../utils/taskUtils'
-import { AccentBar, TypeBadge } from './TaskParts'
-import { Badge } from '@mantine/core'
+import { AccentBar } from './AccentBar'
+import { TypeBadge } from './TypeBadge'
+import { TaskCheckbox } from '../../../shared/components/TaskCheckbox'
 
 interface Props {
   tasks: Task[]
@@ -38,17 +39,10 @@ export function OverdueStrip({ tasks, onDone, onTap }: Props) {
             style={{ borderRadius: 10 }}
           >
             <AccentBar color="red" />
-            <UnstyledButton
-              onClick={() => onDone(task)}
-              w={20}
-              h={20}
-              style={{
-                borderRadius: '50%',
-                border: '1px solid rgba(255,255,255,0.15)',
-                flexShrink: 0,
-              }}
-            />
+            <TaskCheckbox done={false} onToggle={() => onDone(task)} color="gray" />
             <Text
+             
+              fw={600}
               style={{ flex: 1, cursor: 'pointer' }}
               onClick={() => onTap(task)}
             >

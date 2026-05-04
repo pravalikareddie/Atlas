@@ -17,9 +17,10 @@ export function useNeedsAttention(): NeedsAttentionItem[] {
   return useMemo(() => {
     const items: NeedsAttentionItem[] = []
 
-    // Over budget
+    // Over budget (exclude savings/investing — more is good)
+    const POSITIVE_CATEGORIES = ['savings', 'investing']
     budgets
-      .filter((b) => b.month === currentMonth)
+      .filter((b) => b.month === currentMonth && !POSITIVE_CATEGORIES.includes(b.category))
       .forEach((budget) => {
         const spent = expenses
           .filter(
@@ -32,7 +33,7 @@ export function useNeedsAttention(): NeedsAttentionItem[] {
           items.push({
             id: budget.id,
             type: 'over_budget',
-            text: `${cat.label} over ${formatMoney(over)} · acknowledge`,
+            text: `${cat.label} over by ${formatMoney(over)}`,
             route: '/finance/budgets',
             urgency: 4,
           })

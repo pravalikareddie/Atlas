@@ -1,372 +1,52 @@
-import { Box, Text, UnstyledButton, Divider } from '@mantine/core'
-import { useState } from 'react'
+import {
+  Stack,
+  Group,
+  Text,
+  TextInput,
+  Select,
+  Divider,
+  Modal,
+  Button,
+  Paper,
+  Badge,
+  ActionIcon,
+  Checkbox,
+} from '@mantine/core'
+import { useState, useMemo, useEffect } from 'react'
 import { useHealthStore } from '../store/healthStore'
 import {
   insertAppointment,
   updateAppointment as updateApptDb,
+  deleteAppointment as deleteApptDb,
 } from '../services/appointmentService'
 import {
-  insertMedication,
-  updateMedication as updateMedDb,
-} from '../services/medicationService'
-import {
-  insertHealthTodo,
-  updateHealthTodo,
-  deleteHealthTodo,
-} from '../services/healthTodoService'
+  updateTask,
+  deleteTask,
+} from '../../tasks/services/taskService'
+import { useTaskStore } from '../../tasks/store/taskStore'
 import { differenceInDays, differenceInMonths } from 'date-fns'
-import { Button } from '@mantine/core'
 import { EmptyState } from '../../../shared/components/EmptyState'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
-import { TodoList } from '../../../shared/components/TodoList'
-import { HealthAppointment, HealthMedication } from '../types/health.types'
+import { SectionLabel } from '../../../shared/components/SectionLabel'
+import { QuickAddModal } from '../../tasks/components/QuickAddModal'
+import { TaskDetailSheet } from '../../tasks/components/TaskDetailSheet'
+import { Task as AppTask } from '../../tasks/types/task.types'
+import { STRINGS as S } from '../constants/strings'
+import { HealthAppointment } from '../types/health.types'
+import { USER_ID } from '../../tasks/constants/taskConstants'
 
-export function MedicalScreen() {
-  const {
-    appointments,
-    addAppointment,
-    updateAppointment,
-    medications,
-    addMedication,
-    updateMedication,
-    todos,
-    addTodo,
-    updateTodo,
-    removeTodo,
-    loading,
-  } = useHealthStore()
-  const [apptForm, setApptForm] = useState<{ open: boolean; id?: string }>({
-    open: false,
-  })
-  const [medForm, setMedForm] = useState<{ open: boolean; id?: string }>({
-    open: false,
-  })
+// ─── Appointment Form ─────────────────────────────────────────────────────────
 
-  if (loading) return <SkeletonRow count={10} />
-
-  const now = new Date()
-  const overdue = appointments.filter((a) => {
-    if (a.status !== 'active' || !a.last_visited || !a.frequency_months)
-      return false
-    if (a.snoozed_until && new Date(a.snoozed_until) > now) return false
-    const due = new Date(a.last_visited)
-    due.setMonth(due.getMonth() + a.frequency_months)
-    return due < now
-  })
-  const upcoming = appointments.filter(
-    (a) =>
-      a.status === 'active' &&
-      a.next_appointment &&
-      new Date(a.next_appointment) >= now,
-  )
-  const other = appointments.filter(
-    (a) =>
-      a.status === 'active' && !overdue.includes(a) && !upcoming.includes(a),
-  )
-  const activeMeds = medications.filter((m) => m.status === 'active')
-
-  async function snooze(id: string) {
-    const d = new Date()
-    d.setDate(d.getDate() + 14)
-    updateAppointment(id, { snoozed_until: d.toISOString().split('T')[0] })
-    try {
-      await updateApptDb(id, { snoozed_until: d.toISOString().split('T')[0] })
-    } catch {}
-  }
-
-  // Todo actions
-  async function addNewTodo(text: string) {
-    const row = {
-      user_id: '00000000-0000-0000-0000-000000000001',
-      description: text,
-      status: 'todo' as const,
-      completed_at: null,
-    }
-    try {
-      const r = await insertHealthTodo(row)
-      addTodo(r)
-    } catch {
-      addTodo({
-        ...row,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-      })
-    }
-  }
-  async function completeTodo(id: string) {
-    updateTodo(id, { status: 'done', completed_at: new Date().toISOString() })
-    try {
-      await updateHealthTodo(id, {
-        status: 'done',
-        completed_at: new Date().toISOString(),
-      })
-    } catch {}
-  }
-  async function restoreTodo(id: string) {
-    updateTodo(id, { status: 'todo', completed_at: null })
-    try {
-      await updateHealthTodo(id, { status: 'todo', completed_at: null })
-    } catch {}
-  }
-  async function delTodo(id: string) {
-    removeTodo(id)
-    try {
-      await deleteHealthTodo(id)
-    } catch {}
-  }
-
-  function ApptRow({
-    a,
-    showOverdue,
-  }: {
-    a: HealthAppointment
-    showOverdue?: boolean
-  }) {
-    let overdueText = ''
-    if (showOverdue && a.last_visited && a.frequency_months) {
-      const due = new Date(a.last_visited)
-      due.setMonth(due.getMonth() + a.frequency_months)
-      const months = differenceInMonths(now, due)
-      const days = differenceInDays(now, due)
-      overdueText =
-        months > 0 ? `${months} months overdue` : `${days} days overdue`
-    }
-    return (
-      <Box>
-        <Box>
-          <Box>{a.name}</Box>
-        </Box>
-        <Box>
-          {a.last_visited ? `last visited: ${a.last_visited}` : 'never visited'}
-          {overdueText && <Text component="span">· {overdueText}</Text>}
-        </Box>
-        {showOverdue && (
-          <Box>
-            <Button variant="ghost">book now</Button>
-            <Button variant="ghost" onClick={() => snooze(a.id)}>
-              snooze 2 weeks
-            </Button>
-          </Box>
-        )}
-      </Box>
-    )
-  }
-
-  return (
-    <Box>
-      {/* Appointments */}
-      <Box>
-        <Box>APPOINTMENTS</Box>
-        <Button variant="ghost" onClick={() => setApptForm({ open: true })}>
-          + add appointment
-        </Button>
-      </Box>
-
-      {apptForm.open && (
-        <ApptFormCard
-          initial={
-            apptForm.id
-              ? appointments.find((a) => a.id === apptForm.id)
-              : undefined
-          }
-          onSave={async (data) => {
-            if (apptForm.id) {
-              updateAppointment(apptForm.id, data)
-              try {
-                await updateApptDb(apptForm.id, data)
-              } catch {}
-            } else {
-              const row = {
-                user_id: '00000000-0000-0000-0000-000000000001',
-                name: data.name!,
-                appointment_type: data.appointment_type!,
-                last_visited: data.last_visited ?? null,
-                next_appointment: data.next_appointment ?? null,
-                frequency_months: data.frequency_months ?? null,
-                notes: data.notes ?? null,
-                status: 'active' as const,
-                snoozed_until: null,
-              }
-              try {
-                const r = await insertAppointment(row)
-                addAppointment(r)
-              } catch {
-                addAppointment({
-                  ...row,
-                  id: crypto.randomUUID(),
-                  created_at: new Date().toISOString(),
-                })
-              }
-            }
-            setApptForm({ open: false })
-          }}
-          onCancel={() => setApptForm({ open: false })}
-        />
-      )}
-
-      {overdue.length > 0 && (
-        <>
-          <Box>OVERDUE</Box>
-          <Box>
-            {overdue.map((a) => (
-              <Box key={a.id}>
-                <ApptRow a={a} showOverdue />
-              </Box>
-            ))}
-          </Box>
-        </>
-      )}
-      {upcoming.length > 0 && (
-        <>
-          <Box>UPCOMING</Box>
-          <Box>
-            {upcoming.map((a) => {
-              const days = differenceInDays(new Date(a.next_appointment!), now)
-              return (
-                <Box key={a.id}>
-                  <Box>
-                    <Box>{a.name}</Box>
-                    <Box>
-                      {a.next_appointment} · in {days} days
-                    </Box>
-                  </Box>
-                </Box>
-              )
-            })}
-          </Box>
-        </>
-      )}
-      {other.length > 0 && (
-        <>
-          <Box>OTHER</Box>
-          <Box>
-            {other.map((a) => (
-              <Box key={a.id}>
-                <ApptRow a={a} />
-              </Box>
-            ))}
-          </Box>
-        </>
-      )}
-      {!appointments.filter((a) => a.status === 'active').length &&
-        !apptForm.open && (
-          <EmptyState message="No appointments tracked. Add one to stop avoiding." />
-        )}
-
-      <Divider />
-
-      {/* Medications */}
-      <Box>
-        <Box>MEDICATIONS & SUPPLEMENTS</Box>
-        <Button variant="ghost" onClick={() => setMedForm({ open: true })}>
-          + add
-        </Button>
-      </Box>
-
-      {medForm.open && (
-        <MedFormCard
-          initial={
-            medForm.id
-              ? medications.find((m) => m.id === medForm.id)
-              : undefined
-          }
-          onSave={async (data) => {
-            if (medForm.id) {
-              updateMedication(medForm.id, data)
-              try {
-                await updateMedDb(medForm.id, data)
-              } catch {}
-            } else {
-              const row = {
-                user_id: '00000000-0000-0000-0000-000000000001',
-                name: data.name!,
-                frequency: data.frequency!,
-                track_refill: data.track_refill ?? false,
-                refill_date: data.refill_date ?? null,
-                notes: data.notes ?? null,
-                status: 'active' as const,
-              }
-              try {
-                const r = await insertMedication(row)
-                addMedication(r)
-              } catch {
-                addMedication({
-                  ...row,
-                  id: crypto.randomUUID(),
-                  created_at: new Date().toISOString(),
-                })
-              }
-            }
-            setMedForm({ open: false })
-          }}
-          onCancel={() => setMedForm({ open: false })}
-        />
-      )}
-
-      {!activeMeds.length && !medForm.open ? (
-        <EmptyState message="No medications or supplements added." />
-      ) : (
-        <Box>
-          {activeMeds.map((m) => {
-            const refillSoon =
-              m.track_refill &&
-              m.refill_date &&
-              differenceInDays(new Date(m.refill_date), now) <= 5 &&
-              differenceInDays(new Date(m.refill_date), now) >= 0
-            return (
-              <Box key={m.id}>
-                <Box>
-                  <Text component="span">{m.name}</Text>
-                  <Text component="span">{m.frequency.replace('_', ' ')}</Text>
-                </Box>
-                <Box>
-                  {m.track_refill && m.refill_date && (
-                    <Text component="span">refill {m.refill_date}</Text>
-                  )}
-                  {refillSoon && <Text component="span">⚠</Text>}
-                </Box>
-              </Box>
-            )
-          })}
-        </Box>
-      )}
-
-      <Divider />
-
-      {/* Health Todos */}
-      <Box>HEALTH TODOS</Box>
-      <TodoList
-        items={todos.map((t) => ({
-          id: t.id,
-          description: t.description,
-          status: t.status,
-        }))}
-        onComplete={completeTodo}
-        onRestore={restoreTodo}
-        onAdd={addNewTodo}
-        onDelete={delTodo}
-        onEdit={async (id, text) => {
-          updateTodo(id, { description: text })
-          try {
-            await updateHealthTodo(id, { description: text })
-          } catch {}
-        }}
-        placeholder="New health task..."
-        emptyMessage="No health tasks."
-        addLabel="+ add"
-      />
-    </Box>
-  )
-}
-
-function ApptFormCard({
+function ApptFormModal({
+  opened,
   initial,
   onSave,
-  onCancel,
+  onClose,
 }: {
+  opened: boolean
   initial?: HealthAppointment
   onSave: (d: Partial<HealthAppointment>) => void
-  onCancel: () => void
+  onClose: () => void
 }) {
   const [f, setF] = useState({
     name: initial?.name ?? '',
@@ -376,194 +56,315 @@ function ApptFormCard({
     frequency_months: initial?.frequency_months?.toString() ?? '',
     notes: initial?.notes ?? '',
   })
-  const [err, setErr] = useState(false)
+
+  useEffect(() => {
+    if (initial) {
+      setF({
+        name: initial.name ?? '',
+        appointment_type: initial.appointment_type ?? 'doctor',
+        last_visited: initial.last_visited ?? '',
+        next_appointment: initial.next_appointment ?? '',
+        frequency_months: initial.frequency_months?.toString() ?? '',
+        notes: initial.notes ?? '',
+      })
+    }
+  }, [initial?.id])
 
   function save() {
-    if (!f.name.trim()) {
-      setErr(true)
-      return
-    }
+    if (!f.name.trim()) return
     onSave({
       name: f.name,
       appointment_type: f.appointment_type,
       last_visited: f.last_visited || null,
       next_appointment: f.next_appointment || null,
-      frequency_months: f.frequency_months
-        ? parseInt(f.frequency_months)
-        : null,
+      frequency_months: f.frequency_months ? parseInt(f.frequency_months) : null,
       notes: f.notes || null,
     })
   }
 
   return (
-    <Box>
-      <label>name</label>
-      <input
-        value={f.name}
-        onChange={(e) => {
-          setF({ ...f, name: e.target.value })
-          setErr(false)
-        }}
-        placeholder="Dentist, Eye doctor..."
-      />
-      {err && <Box>This field is required</Box>}
-      <label>type</label>
-      <select
-        value={f.appointment_type}
-        onChange={(e) => setF({ ...f, appointment_type: e.target.value })}
-      >
-        <option value="dentist">Dentist</option>
-        <option value="eye">Eye</option>
-        <option value="doctor">Doctor</option>
-        <option value="dermatologist">Dermatologist</option>
-        <option value="therapy">Therapy</option>
-        <option value="other">Other</option>
-      </select>
-      <label>last visited (optional)</label>
-      <Box>
-        <input
-          type="date"
-          value={f.last_visited}
-          onChange={(e) => setF({ ...f, last_visited: e.target.value })}
+    <Modal opened={opened} onClose={onClose} title={initial ? f.name : S.ADD_APPOINTMENT}>
+      <Stack>
+        <TextInput
+          label={S.FIELD_NAME}
+          value={f.name}
+          onChange={(e) => setF({ ...f, name: e.currentTarget.value })}
+          placeholder={S.PH_APPT_NAME}
+          required
+          data-autofocus
         />
-        {f.last_visited && (
-          <UnstyledButton onClick={() => setF({ ...f, last_visited: '' })}>
-            ×
-          </UnstyledButton>
-        )}
-      </Box>
-      <label>next appointment (optional)</label>
-      <Box>
-        <input
+        <Select
+          label={S.FIELD_TYPE}
+          value={f.appointment_type}
+          onChange={(v) => setF({ ...f, appointment_type: v ?? 'doctor' })}
+          data={S.APPT_TYPES}
+        />
+        <TextInput
+          label={S.FIELD_NEXT_APPT}
           type="date"
           value={f.next_appointment}
-          onChange={(e) => setF({ ...f, next_appointment: e.target.value })}
+          onChange={(e) => setF({ ...f, next_appointment: e.currentTarget.value })}
+          rightSection={f.next_appointment ? (
+            <ActionIcon size="xs" variant="subtle" onClick={() => setF({ ...f, next_appointment: '' })}>✕</ActionIcon>
+          ) : undefined}
         />
-        {f.next_appointment && (
-          <UnstyledButton onClick={() => setF({ ...f, next_appointment: '' })}>
-            ×
-          </UnstyledButton>
-        )}
-      </Box>
-      <label>how often (optional)</label>
-      <select
-        value={f.frequency_months}
-        onChange={(e) => setF({ ...f, frequency_months: e.target.value })}
-      >
-        <option value="">No schedule</option>
-        <option value="3">Every 3 months</option>
-        <option value="6">Every 6 months</option>
-        <option value="12">Every year</option>
-        <option value="24">Every 2 years</option>
-      </select>
-      <label>notes (optional)</label>
-      <input
-        value={f.notes}
-        onChange={(e) => setF({ ...f, notes: e.target.value })}
-      />
-      <Box>
-        <Button variant="secondary" onClick={onCancel}>
-          cancel
-        </Button>
-        <Button onClick={save}>save</Button>
-      </Box>
-    </Box>
+        <Select
+          label={S.FIELD_FREQUENCY}
+          value={f.frequency_months}
+          onChange={(v) => setF({ ...f, frequency_months: v ?? '' })}
+          data={S.FREQ_OPTIONS}
+        />
+        <TextInput
+          label={S.FIELD_NOTES}
+          value={f.notes}
+          onChange={(e) => setF({ ...f, notes: e.currentTarget.value })}
+        />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>{S.CANCEL}</Button>
+          <Button onClick={save} disabled={!f.name.trim()}>{S.SAVE}</Button>
+        </Group>
+      </Stack>
+    </Modal>
   )
 }
 
-function MedFormCard({
-  initial,
-  onSave,
-  onCancel,
-}: {
-  initial?: HealthMedication
-  onSave: (d: Partial<HealthMedication>) => void
-  onCancel: () => void
-}) {
-  const [f, setF] = useState({
-    name: initial?.name ?? '',
-    frequency: (initial?.frequency ?? 'daily') as
-      | 'daily'
-      | 'weekly'
-      | 'as_needed',
-    track_refill: initial?.track_refill ?? false,
-    refill_date: initial?.refill_date ?? '',
-    notes: initial?.notes ?? '',
-  })
-  const [err, setErr] = useState(false)
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
-  function save() {
-    if (!f.name.trim()) {
-      setErr(true)
-      return
+export function MedicalScreen() {
+  const {
+    appointments, addAppointment, updateAppointment, removeAppointment,
+    loading,
+  } = useHealthStore()
+  const taskStore = useTaskStore()
+  const healthTasks = useMemo(
+    () => taskStore.tasks.filter((t) => t.type === 'health'),
+    [taskStore.tasks],
+  )
+
+  const [apptForm, setApptForm] = useState<{ open: boolean; id?: string }>({ open: false })
+  const [showQuickAdd, setShowQuickAdd] = useState(false)
+  const [detailTask, setDetailTask] = useState<AppTask | null>(null)
+
+  if (loading) return <SkeletonRow count={10} />
+
+  const now = new Date()
+  const overdue = appointments.filter((a) => {
+    if (a.status !== 'active' || !a.last_visited || !a.frequency_months) return false
+    if (a.snoozed_until && new Date(a.snoozed_until) > now) return false
+    const due = new Date(a.last_visited)
+    due.setMonth(due.getMonth() + a.frequency_months)
+    return due < now
+  })
+  const upcoming = appointments.filter(
+    (a) => a.status === 'active' && a.next_appointment && new Date(a.next_appointment) >= now,
+  )
+  const other = appointments.filter(
+    (a) => a.status === 'active' && !overdue.includes(a) && !upcoming.includes(a),
+  )
+
+  async function snooze(id: string) {
+    const d = new Date()
+    d.setDate(d.getDate() + 14)
+    const val = d.toISOString().split('T')[0]
+    updateAppointment(id, { snoozed_until: val })
+    try { await updateApptDb(id, { snoozed_until: val }) } catch {}
+  }
+
+  async function saveAppt(data: Partial<HealthAppointment>) {
+    if (apptForm.id) {
+      updateAppointment(apptForm.id, data)
+      try { await updateApptDb(apptForm.id, data) } catch {}
+    } else {
+      const row = {
+        user_id: USER_ID,
+        name: data.name!,
+        appointment_type: data.appointment_type!,
+        last_visited: data.last_visited ?? null,
+        next_appointment: data.next_appointment ?? null,
+        frequency_months: data.frequency_months ?? null,
+        notes: data.notes ?? null,
+        status: 'active' as const,
+        snoozed_until: null,
+      }
+      try { addAppointment(await insertAppointment(row)) } catch {
+        addAppointment({ ...row, id: crypto.randomUUID(), created_at: new Date().toISOString() })
+      }
     }
-    onSave({
-      name: f.name,
-      frequency: f.frequency,
-      track_refill: f.track_refill,
-      refill_date: f.refill_date || null,
-      notes: f.notes || null,
-    })
+    setApptForm({ open: false })
+  }
+
+  async function deleteAppt(id: string) {
+    if (!confirm(S.CONFIRM_DELETE_APPT)) return
+    removeAppointment(id)
+    try { await deleteApptDb(id) } catch {}
+  }
+
+  // Health task actions
+  async function completeTodo(id: string) {
+    taskStore.updateTask(id, { status: 'done', completed_at: new Date().toISOString() })
+    try { await updateTask(id, { status: 'done', completed_at: new Date().toISOString() }) } catch {}
+  }
+  async function delTodo(id: string) {
+    taskStore.removeTask(id)
+    try { await deleteTask(id) } catch {}
+  }
+
+  function overdueText(a: HealthAppointment) {
+    if (!a.last_visited || !a.frequency_months) return ''
+    const due = new Date(a.last_visited)
+    due.setMonth(due.getMonth() + a.frequency_months)
+    const months = differenceInMonths(now, due)
+    return months > 0 ? S.MONTHS_OVERDUE(months) : S.DAYS_OVERDUE(differenceInDays(now, due))
+  }
+
+  function ApptRow({ a, isOverdue }: { a: HealthAppointment; isOverdue?: boolean }) {
+    return (
+      <Paper p="sm" radius="md" withBorder>
+        <Group justify="space-between" align="flex-start">
+          <Stack gap={4} style={{ flex: 1 }}>
+            <Group gap="xs">
+              <Text fw={600}>{a.name}</Text>
+              {isOverdue && <Badge color="red" size="xs">{S.OVERDUE}</Badge>}
+            </Group>
+            <Text size="xs" c="dimmed">
+              {a.last_visited ? `${S.LAST_VISITED}: ${a.last_visited}` : S.NEVER_VISITED}
+              {isOverdue && ` · ${overdueText(a)}`}
+            </Text>
+          </Stack>
+          <Group gap="xs">
+            <ActionIcon variant="subtle" size="sm" onClick={() => setApptForm({ open: true, id: a.id })}>
+              ✎
+            </ActionIcon>
+            <ActionIcon variant="subtle" size="sm" color="red" onClick={() => deleteAppt(a.id)}>
+              ✕
+            </ActionIcon>
+            {isOverdue && (
+              <Button variant="subtle" size="xs" onClick={() => snooze(a.id)}>
+                {S.SNOOZE_2W}
+              </Button>
+            )}
+          </Group>
+        </Group>
+      </Paper>
+    )
   }
 
   return (
-    <Box>
-      <label>name</label>
-      <input
-        value={f.name}
-        onChange={(e) => {
-          setF({ ...f, name: e.target.value })
-          setErr(false)
-        }}
-      />
-      {err && <Box>This field is required</Box>}
-      <label>frequency</label>
-      <Box>
-        {(['daily', 'weekly', 'as_needed'] as const).map((freq) => (
-          <UnstyledButton
-            key={freq}
-            onClick={() => setF({ ...f, frequency: freq })}
-          >
-            {freq.replace('_', ' ')}
-          </UnstyledButton>
-        ))}
-      </Box>
-      <Box>
-        <input
-          type="checkbox"
-          checked={f.track_refill}
-          onChange={(e) => setF({ ...f, track_refill: e.target.checked })}
-        />
-        <Text component="span">Track refill</Text>
-      </Box>
-      {f.track_refill && (
-        <>
-          <label>refill date</label>
-          <Box>
-            <input
-              type="date"
-              value={f.refill_date}
-              onChange={(e) => setF({ ...f, refill_date: e.target.value })}
-            />
-            {f.refill_date && (
-              <UnstyledButton onClick={() => setF({ ...f, refill_date: '' })}>
-                ×
-              </UnstyledButton>
-            )}
-          </Box>
-        </>
-      )}
-      <label>notes (optional)</label>
-      <input
-        value={f.notes}
-        onChange={(e) => setF({ ...f, notes: e.target.value })}
-      />
-      <Box>
-        <Button variant="secondary" onClick={onCancel}>
-          cancel
+    <Stack gap="lg">
+      {/* Appointments */}
+      <Group justify="space-between">
+        <SectionLabel>{S.APPOINTMENTS}</SectionLabel>
+        <Button variant="subtle" size="xs" onClick={() => setApptForm({ open: true })}>
+          {S.ADD_APPOINTMENT}
         </Button>
-        <Button onClick={save}>save</Button>
-      </Box>
-    </Box>
+      </Group>
+
+      {overdue.length > 0 && (
+        <Stack gap="xs">
+          <Text size="xs" tt="uppercase" c="red" fw={700}>{S.OVERDUE}</Text>
+          {overdue.map((a) => <ApptRow key={a.id} a={a} isOverdue />)}
+        </Stack>
+      )}
+      {upcoming.length > 0 && (
+        <Stack gap="xs">
+          <Text size="xs" tt="uppercase" c="dimmed" fw={700}>{S.UPCOMING}</Text>
+          {upcoming.map((a) => (
+            <Paper key={a.id} p="sm" radius="md" withBorder>
+              <Group justify="space-between">
+                <Stack gap={4}>
+                  <Text fw={600}>{a.name}</Text>
+                  <Text size="xs" c="dimmed">
+                    {a.next_appointment} · {S.IN_DAYS(differenceInDays(new Date(a.next_appointment!), now))}
+                  </Text>
+                </Stack>
+                <Group gap="xs">
+                  <ActionIcon variant="subtle" size="sm" onClick={() => setApptForm({ open: true, id: a.id })}>
+                    ✎
+                  </ActionIcon>
+                  <ActionIcon variant="subtle" size="sm" color="red" onClick={() => deleteAppt(a.id)}>
+                    ✕
+                  </ActionIcon>
+                </Group>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+      {other.length > 0 && (
+        <Stack gap="xs">
+          <Text size="xs" tt="uppercase" c="dimmed" fw={700}>{S.OTHER}</Text>
+          {other.map((a) => <ApptRow key={a.id} a={a} />)}
+        </Stack>
+      )}
+      {!appointments.filter((a) => a.status === 'active').length && (
+        <EmptyState icon="🩺" message={S.EMPTY_APPTS} />
+      )}
+
+      <ApptFormModal
+        opened={apptForm.open}
+        initial={apptForm.id ? appointments.find((a) => a.id === apptForm.id) : undefined}
+        onSave={saveAppt}
+        onClose={() => setApptForm({ open: false })}
+      />
+
+      <Divider />
+
+      {/* Health Tasks */}
+      <Group justify="space-between">
+        <SectionLabel>{S.HEALTH_TODOS}</SectionLabel>
+        <Button variant="subtle" size="xs" onClick={() => setShowQuickAdd(true)}>
+          {S.ADD}
+        </Button>
+      </Group>
+      {!healthTasks.length ? (
+        <EmptyState icon="✅" message={S.EMPTY_TODOS} />
+      ) : (
+        <Stack gap="xs">
+          {healthTasks.filter((t) => t.status === 'todo').map((t) => (
+            <Paper key={t.id} p="sm" radius="md" withBorder style={{ cursor: 'pointer' }}
+              onClick={() => setDetailTask(t)}
+            >
+              <Group justify="space-between">
+                <Group gap="sm">
+                  <Checkbox
+                    size="xs"
+                    radius="xl"
+                    checked={false}
+                    onChange={(e) => { e.stopPropagation(); completeTodo(t.id) }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <Stack gap={2}>
+                    <Text size="sm" fw={500}>{t.title}</Text>
+                    {t.due_date && <Text size="xs" c="dimmed">{t.due_date}</Text>}
+                  </Stack>
+                </Group>
+                <Group gap={4}>
+                  <ActionIcon variant="subtle" size="sm"
+                    onClick={(e) => { e.stopPropagation(); setDetailTask(t) }}
+                  >
+                    ✎
+                  </ActionIcon>
+                  <ActionIcon variant="subtle" size="sm" color="red"
+                    onClick={(e) => { e.stopPropagation(); delTodo(t.id) }}
+                  >
+                    ✕
+                  </ActionIcon>
+                </Group>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+
+      <QuickAddModal
+        open={showQuickAdd}
+        defaultType="health"
+        allowedTypes={['health']}
+        onClose={() => setShowQuickAdd(false)}
+      />
+      {detailTask && (
+        <TaskDetailSheet task={detailTask} onClose={() => setDetailTask(null)} />
+      )}
+    </Stack>
   )
 }
