@@ -105,69 +105,89 @@ export function BottomWidgets() {
         >
           Check-in
         </Text>
-        <Group gap={8} wrap="nowrap" style={{ overflowX: 'auto', paddingBottom: 4 }}>
-          <Tooltip label="Mood" withArrow><Box style={chipStyle} onClick={() => setModal('mood')}>
-            {todayLog?.mood ? MOODS[todayLog.mood - 1] : '😐'}
-          </Box></Tooltip>
-          <Tooltip label="Energy" withArrow><Box style={chipStyle} onClick={() => setModal('energy')}>
-            ⚡{' '}
-            {todayLog?.energy_level ? ENERGY[todayLog.energy_level - 1] : '--'}
-          </Box></Tooltip>
-          <Tooltip label="Stress" withArrow><Box style={chipStyle} onClick={() => setModal('stress')}>
-            🌡{' '}
-            {todayLog?.stress_level ? STRESS[todayLog.stress_level - 1] : '--'}
-          </Box></Tooltip>
-          <Tooltip label="Water" withArrow><Box
-            style={{
-              ...chipStyle,
-              color:
-                todayLog?.water_cups === 8
+        <Group gap={8} wrap="wrap">
+          <Tooltip label="Mood" withArrow>
+            <Box style={chipStyle} onClick={() => setModal('mood')}>
+              {todayLog?.mood ? MOODS[todayLog.mood - 1] : '😐'}
+            </Box>
+          </Tooltip>
+          <Tooltip label="Energy" withArrow>
+            <Box style={chipStyle} onClick={() => setModal('energy')}>
+              ⚡{' '}
+              {todayLog?.energy_level
+                ? ENERGY[todayLog.energy_level - 1]
+                : '--'}
+            </Box>
+          </Tooltip>
+          <Tooltip label="Stress" withArrow>
+            <Box style={chipStyle} onClick={() => setModal('stress')}>
+              🌡{' '}
+              {todayLog?.stress_level
+                ? STRESS[todayLog.stress_level - 1]
+                : '--'}
+            </Box>
+          </Tooltip>
+          <Tooltip label="Water" withArrow>
+            <Box
+              style={{
+                ...chipStyle,
+                color:
+                  todayLog?.water_cups === 8
+                    ? '#38bec9'
+                    : 'rgba(255,255,255,0.75)',
+              }}
+              onClick={() => setModal('water')}
+            >
+              💧 {todayLog?.water_cups ?? 0}/8
+            </Box>
+          </Tooltip>
+          <Tooltip label="Sleep" withArrow>
+            <Box
+              style={chipStyle}
+              onClick={() => {
+                setSleepInput(todayLog?.sleep_hours ?? '')
+                setModal('sleep')
+              }}
+            >
+              🌙 {todayLog?.sleep_hours ?? '--'}h
+            </Box>
+          </Tooltip>
+          <Tooltip label="Reset Mode" withArrow>
+            <Box style={chipStyle} onClick={() => setShowReset(true)}>
+              🔄
+            </Box>
+          </Tooltip>
+          <Tooltip label="Exercise" withArrow>
+            <Box
+              style={{
+                ...chipStyle,
+                color: todayLog?.exercise_done
                   ? '#38bec9'
                   : 'rgba(255,255,255,0.75)',
-            }}
-            onClick={() => setModal('water')}
-          >
-            💧 {todayLog?.water_cups ?? 0}/8
-          </Box></Tooltip>
-          <Tooltip label="Sleep" withArrow><Box
-            style={chipStyle}
-            onClick={() => {
-              setSleepInput(todayLog?.sleep_hours ?? '')
-              setModal('sleep')
-            }}
-          >
-            🌙 {todayLog?.sleep_hours ?? '--'}h
-          </Box></Tooltip>
-          <Tooltip label="Reset Mode" withArrow><Box style={chipStyle} onClick={() => setShowReset(true)}>
-            🔄
-          </Box></Tooltip>
-          <Tooltip label="Exercise" withArrow><Box
-            style={{
-              ...chipStyle,
-              color: todayLog?.exercise_done
-                ? '#38bec9'
-                : 'rgba(255,255,255,0.75)',
-            }}
-            onClick={() => {
-              setExerciseNote(todayLog?.exercise_notes ?? '')
-              setModal('exercise')
-            }}
-          >
-            🏋️ {todayLog?.exercise_done ? 'Done' : 'Exercise'}
-          </Box></Tooltip>
-          <Tooltip label="Supplements" withArrow><Box
-            style={{
-              ...chipStyle,
-              color: todayLog?.supplements_done
-                ? '#38bec9'
-                : 'rgba(255,255,255,0.75)',
-            }}
-            onClick={() =>
-              save({ supplements_done: !todayLog?.supplements_done })
-            }
-          >
-            💊 {todayLog?.supplements_done ? 'Done' : 'Supps'}
-          </Box></Tooltip>
+              }}
+              onClick={() => {
+                setExerciseNote(todayLog?.exercise_notes ?? '')
+                setModal('exercise')
+              }}
+            >
+              🏋️ {todayLog?.exercise_done ? 'Done' : 'Exercise'}
+            </Box>
+          </Tooltip>
+          <Tooltip label="Supplements" withArrow>
+            <Box
+              style={{
+                ...chipStyle,
+                color: todayLog?.supplements_done
+                  ? '#38bec9'
+                  : 'rgba(255,255,255,0.75)',
+              }}
+              onClick={() =>
+                save({ supplements_done: !todayLog?.supplements_done })
+              }
+            >
+              💊 {todayLog?.supplements_done ? 'Done' : 'Supps'}
+            </Box>
+          </Tooltip>
         </Group>
       </Box>
 
