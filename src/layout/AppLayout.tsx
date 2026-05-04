@@ -68,8 +68,8 @@ export function AppLayout() {
           <Burger opened={opened} onClick={toggle} size="sm" color="white" />
         </AppShell.Header>
       )}
-      <AppShell.Navbar p="md" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-        <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <AppShell.Navbar p="md" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
           <Sidebar onNavigate={isMobile ? close : undefined} />
         </Box>
         <BottomWidgets />
