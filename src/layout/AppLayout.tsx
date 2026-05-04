@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { useEffect } from 'react'
-import { AppShell, Box } from '@mantine/core'
+import { AppShell, Box, Burger } from '@mantine/core'
+import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Sidebar } from './Sidebar'
 import { BottomWidgets } from './BottomWidgets'
 import ChatWidget from '../features/chat/ChatWidget'
@@ -35,9 +36,13 @@ export function AppLayout() {
     scheduleAllReminders(tasks)
   }, [tasks, meetings])
 
+  const [opened, { toggle, close }] = useDisclosure()
+  const isMobile = useMediaQuery('(max-width: 768px)')
+
   return (
     <AppShell
-      navbar={{ width: 220, breakpoint: 0 }}
+      header={isMobile ? { height: 50 } : undefined}
+      navbar={{ width: 220, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding={0}
       styles={{
         main: {
@@ -49,9 +54,23 @@ export function AppLayout() {
         },
       }}
     >
+      {isMobile && (
+        <AppShell.Header
+          h={50}
+          style={{
+            background: 'var(--mantine-color-dark-8)',
+            borderBottom: `1px solid ${COLORS.WHITE_06}`,
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: 12,
+          }}
+        >
+          <Burger opened={opened} onClick={toggle} size="sm" color="white" />
+        </AppShell.Header>
+      )}
       <AppShell.Navbar p="md" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
         <Box style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <Sidebar />
+          <Sidebar onNavigate={isMobile ? close : undefined} />
         </Box>
         <BottomWidgets />
       </AppShell.Navbar>

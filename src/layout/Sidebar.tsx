@@ -3,7 +3,7 @@ import { Stack, Text, UnstyledButton, Group, Box, Tooltip } from '@mantine/core'
 import { NAV_SECTIONS, QUICK_LINKS } from './routes'
 import { COLORS, GRADIENTS, TRANSITION_FAST } from '../shared/constants/styles'
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation()
 
   return (
@@ -51,6 +51,7 @@ export function Sidebar() {
                   key={item.to}
                   component={NavLink}
                   to={item.to}
+                  onClick={onNavigate}
                   py={8}
                   px="sm"
                   style={{
@@ -85,6 +86,7 @@ export function Sidebar() {
               <UnstyledButton
                 component={NavLink}
                 to={link.to}
+                onClick={onNavigate}
                 p={8}
                 style={{
                   borderRadius: 'var(--mantine-radius-md)',
