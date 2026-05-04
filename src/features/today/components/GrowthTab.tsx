@@ -183,7 +183,7 @@ export function GrowthTab() {
           boxShadow: 'var(--mantine-shadow-sm)',
         }}
       >
-        <SimpleGrid cols={8} spacing={0}>
+        <SimpleGrid cols={3} spacing={0}>
           {TABS.map((t) => (
             <UnstyledButton
               key={t.value}

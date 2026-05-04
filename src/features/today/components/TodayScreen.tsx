@@ -566,7 +566,7 @@ export function TodayScreen() {
                 onTap={setDetailTask}
               />
 
-              <SimpleGrid cols={2} spacing="md">
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 {/* Work — Sprint view */}
                 <CardShell
                   label={STRINGS.WORK}

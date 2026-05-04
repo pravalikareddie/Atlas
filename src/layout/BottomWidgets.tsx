@@ -105,7 +105,7 @@ export function BottomWidgets() {
         >
           Check-in
         </Text>
-        <Group gap={8} wrap="wrap">
+        <Group gap={8} wrap="nowrap" style={{ overflowX: 'auto', paddingBottom: 4 }}>
           <Tooltip label="Mood" withArrow><Box style={chipStyle} onClick={() => setModal('mood')}>
             {todayLog?.mood ? MOODS[todayLog.mood - 1] : '😐'}
           </Box></Tooltip>
