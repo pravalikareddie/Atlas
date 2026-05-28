@@ -1,10 +1,9 @@
 import { CategoryInfo } from '../types/finance.types'
 
-export const CATEGORIES: CategoryInfo[] = [
-  // Income
-  { key: 'income', label: 'Income', emoji: '💚' },
+const STORAGE_KEY = 'atlas-budget-categories'
 
-  // Expenses
+const DEFAULT_CATEGORIES: CategoryInfo[] = [
+  { key: 'income', label: 'Income', emoji: '💚' },
   { key: 'rent', label: 'Rent', emoji: '🏠' },
   { key: 'phone', label: 'Phone', emoji: '📱' },
   { key: 'emi1', label: 'Primary EMI', emoji: '🧾' },
@@ -19,13 +18,47 @@ export const CATEGORIES: CategoryInfo[] = [
   { key: 'other', label: 'Misc', emoji: '📦' },
 ]
 
-// Shown in log expense grid — income excluded, has its own tile in LogTypeSelector
-export const EXPENSE_GRID_CATEGORIES = CATEGORIES.filter(
+function loadCategories(): CategoryInfo[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return DEFAULT_CATEGORIES
+}
+
+function saveCategories(cats: CategoryInfo[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
+}
+
+export let CATEGORIES: CategoryInfo[] = loadCategories()
+
+export function addCategory(cat: CategoryInfo) {
+  CATEGORIES = [...CATEGORIES, cat]
+  saveCategories(CATEGORIES)
+}
+
+export function updateCategory(key: string, updates: Partial<CategoryInfo>) {
+  CATEGORIES = CATEGORIES.map((c) => (c.key === key ? { ...c, ...updates } : c))
+  saveCategories(CATEGORIES)
+}
+
+export function removeCategory(key: string) {
+  CATEGORIES = CATEGORIES.filter((c) => c.key !== key)
+  saveCategories(CATEGORIES)
+}
+
+export function resetCategories() {
+  CATEGORIES = DEFAULT_CATEGORIES
+  saveCategories(CATEGORIES)
+}
+
+// Shown in log expense grid — income excluded
+export const EXPENSE_GRID_CATEGORIES = (() => CATEGORIES.filter(
   (c) => c.key !== 'income',
-).map((c) => c.key)
+).map((c) => c.key))()
 
 // All categories including income (used in budget flat list)
-export const BUDGET_CATEGORIES = CATEGORIES.map((c) => c.key)
+export const BUDGET_CATEGORIES = (() => CATEGORIES.map((c) => c.key))()
 
 export const INCOME_CATEGORY = 'income'
 
@@ -33,4 +66,12 @@ export function getCategoryInfo(key: string): CategoryInfo {
   return (
     CATEGORIES.find((c) => c.key === key) ?? { key, label: key, emoji: '📦' }
   )
+}
+
+export function getExpenseGridCategories(): string[] {
+  return CATEGORIES.filter((c) => c.key !== 'income').map((c) => c.key)
+}
+
+export function getBudgetCategories(): string[] {
+  return CATEGORIES.map((c) => c.key)
 }

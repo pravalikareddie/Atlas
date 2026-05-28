@@ -669,6 +669,11 @@ export function ExploreScreen() {
                 setForm({ ...form, target_date: e.currentTarget.value })
               }
             />
+            {form.target_date && (
+              <Button variant="subtle" size="xs" color="red" onClick={() => setForm({ ...form, target_date: '' })}>
+                Clear date
+              </Button>
+            )}
             <Group justify="flex-end">
               <Button variant="default" onClick={resetForm}>
                 {S.CANCEL}
@@ -722,6 +727,11 @@ export function ExploreScreen() {
                 setForm({ ...form, target_date: e.currentTarget.value })
               }
             />
+            {form.target_date && (
+              <Button variant="subtle" size="xs" color="red" onClick={() => setForm({ ...form, target_date: '' })}>
+                Clear date
+              </Button>
+            )}
             <Group justify="flex-end">
               <Button variant="default" onClick={resetForm}>
                 {S.CANCEL}
@@ -1057,6 +1067,24 @@ export function ExploreScreen() {
         {detailPlace && (
           <Stack>
             <DetailHero url={detailPlace.image_url} grad={STYLES.GRAD_PLACE} />
+            {detailPlace.target_date && (
+              <Group gap="xs">
+                <Text size="sm" fw={600} c="teal">
+                  📅 {format(parseISO(detailPlace.target_date), 'MMM d, yyyy')}
+                </Text>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  color="red"
+                  onClick={async () => {
+                    updatePlace(detailPlace.id, { target_date: null })
+                    try { await svc.updatePlace(detailPlace.id, { target_date: null }) } catch {}
+                  }}
+                >
+                  Clear date
+                </Button>
+              </Group>
+            )}
             {detailPlace.note && (
               <Text size="sm" c="dimmed">
                 {detailPlace.note}

@@ -7,6 +7,7 @@ import { fetchRefunds } from '../services/refundService'
 import { fetchSplitwise } from '../services/splitwiseService'
 import { fetchSubscriptions } from '../services/subscriptionService'
 import { fetchAccounts } from '../services/accountService'
+import { fetchExpenseGroups } from '../services/groupExpenseService'
 import { USER_ID } from '../../tasks/constants/taskConstants'
 
 function getPreviousMonth(month: string): string {
@@ -31,13 +32,15 @@ export function useFinanceData() {
       fetchSplitwise().catch(() => []),
       fetchSubscriptions().catch(() => []),
       fetchAccounts().catch(() => []),
+      fetchExpenseGroups().catch(() => []),
     ]).then(
-      async ([expenses, budgets, refunds, splitwise, subscriptions, accounts]) => {
+      async ([expenses, budgets, refunds, splitwise, subscriptions, accounts, expenseGroups]) => {
         store.setExpenses(expenses)
         store.setRefunds(refunds)
         store.setSplitwise(splitwise)
         store.setSubscriptions(subscriptions)
         store.setAccounts(accounts)
+        store.setExpenseGroups(expenseGroups)
 
         // Auto-copy budgets from last month if none exist for current month
         if (budgets.length === 0) {

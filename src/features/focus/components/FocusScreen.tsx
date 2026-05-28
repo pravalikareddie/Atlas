@@ -37,17 +37,47 @@ export function FocusScreen() {
   const tasks = useTaskStore((s) => s.tasks)
   const { update } = useTaskActions()
   const navigate = useNavigate()
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  // Persist timer state across reloads
+  const STORAGE_KEY = 'atlas-focus-state'
+  function loadPersistedState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return null
+      return JSON.parse(raw) as {
+        selectedTaskId: string | null
+        phase: FocusPhase
+        secondsLeft: number
+        totalSeconds: number
+        driftCount: number
+        minutes: number
+        resumeAt?: number // timestamp when timer was last ticking
+      }
+    } catch { return null }
+  }
+  const persisted = loadPersistedState()
+
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(persisted?.selectedTaskId ?? null)
   const [mediaUrl, setMediaUrl] = useState(
     'https://www.youtube.com/watch?v=cEWwJxEq9Lg&list=RDGMEMCMFH2exzjBeE_zAHHJOdxgVMcEWwJxEq9Lg&start_radio=1',
   )
-  const [minutes, setMinutes] = useState(25)
+  const [minutes, setMinutes] = useState(persisted?.minutes ?? 25)
   const [customMinutes, setCustomMinutes] = useState('')
   const [showCustom, setShowCustom] = useState(false)
-  const [phase, setPhase] = useState<FocusPhase>('pre')
-  const [secondsLeft, setSecondsLeft] = useState(0)
-  const [totalSeconds, setTotalSeconds] = useState(0)
-  const [driftCount, setDriftCount] = useState(0)
+  const [phase, setPhase] = useState<FocusPhase>(() => {
+    if (!persisted) return 'pre'
+    if (persisted.phase === 'running' || persisted.phase === 'drifted') return persisted.phase
+    return 'pre'
+  })
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (!persisted || (persisted.phase !== 'running' && persisted.phase !== 'drifted')) return 0
+    if (persisted.phase === 'running' && persisted.resumeAt) {
+      const elapsed = Math.floor((Date.now() - persisted.resumeAt) / 1000)
+      return Math.max(0, persisted.secondsLeft - elapsed)
+    }
+    return persisted.secondsLeft
+  })
+  const [totalSeconds, setTotalSeconds] = useState(persisted?.totalSeconds ?? 0)
+  const [driftCount, setDriftCount] = useState(persisted?.driftCount ?? 0)
   const [aiMessage, setAiMessage] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [finishChoice, setFinishChoice] = useState<
@@ -57,6 +87,24 @@ export function FocusScreen() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const ytRef = useRef<HTMLIFrameElement | null>(null)
+
+  // Persist focus state to localStorage
+  useEffect(() => {
+    if (phase === 'pre' || phase === 'finished' || phase === 'result') {
+      localStorage.removeItem(STORAGE_KEY)
+      return
+    }
+    const state = {
+      selectedTaskId,
+      phase,
+      secondsLeft,
+      totalSeconds,
+      driftCount,
+      minutes,
+      resumeAt: phase === 'running' ? Date.now() : undefined,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  }, [phase, secondsLeft, totalSeconds, driftCount, selectedTaskId, minutes])
 
   // Build playable URL from YouTube Music or regular YouTube links
   const playerInfo = useMemo(() => {

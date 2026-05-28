@@ -1,4 +1,4 @@
-import { Paper, Stack, Group, Text , Badge } from '@mantine/core'
+import { Paper, Stack, Group, Text, Badge } from '@mantine/core'
 import { Task } from '../types/task.types'
 import { formatAge } from '../utils/taskUtils'
 import { AccentBar } from './AccentBar'
@@ -13,6 +13,15 @@ interface Props {
 
 export function OverdueStrip({ tasks, onDone, onTap }: Props) {
   if (tasks.length === 0) return null
+
+  // Group by type
+  const grouped = tasks.reduce<Record<string, Task[]>>((acc, t) => {
+    const key = t.type
+    ;(acc[key] ??= []).push(t)
+    return acc
+  }, {})
+
+  const sortedTypes = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
 
   return (
     <Paper
@@ -29,29 +38,35 @@ export function OverdueStrip({ tasks, onDone, onTap }: Props) {
       <Text tt="uppercase" c="red" mb="sm">
         Overdue · {tasks.length}
       </Text>
-      <Stack gap={4}>
-        {tasks.map((task) => (
-          <Group
-            key={task.id}
-            gap="sm"
-            py={8}
-            px={8}
-            style={{ borderRadius: 10 }}
-          >
-            <AccentBar color="red" />
-            <TaskCheckbox done={false} onToggle={() => onDone(task)} color="gray" />
-            <Text
-             
-              fw={600}
-              style={{ flex: 1, cursor: 'pointer' }}
-              onClick={() => onTap(task)}
-            >
-              {task.title}
+      <Stack gap="md">
+        {sortedTypes.map((type) => (
+          <Stack key={type} gap={4}>
+            <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+              {type.replace('_', ' ')}
             </Text>
-            <TypeBadge type={task.type} />
-            <Text c="red">{formatAge(task.due_date!)} ⚠</Text>
-            {task.push_count >= 3 && <Badge variant="warning">avoiding</Badge>}
-          </Group>
+            {grouped[type].map((task) => (
+              <Group
+                key={task.id}
+                gap="sm"
+                py={8}
+                px={8}
+                style={{ borderRadius: 10 }}
+              >
+                <AccentBar color="red" />
+                <TaskCheckbox done={false} onToggle={() => onDone(task)} color="gray" />
+                <Text
+                  fw={600}
+                  style={{ flex: 1, cursor: 'pointer' }}
+                  onClick={() => onTap(task)}
+                >
+                  {task.title}
+                </Text>
+                <TypeBadge type={task.type} />
+                <Text c="red">{formatAge(task.due_date!)} ⚠</Text>
+                {task.push_count >= 3 && <Badge variant="warning">avoiding</Badge>}
+              </Group>
+            ))}
+          </Stack>
         ))}
       </Stack>
     </Paper>

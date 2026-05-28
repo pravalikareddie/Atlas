@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Stack, Group, Text, Paper, Box, Badge, Button, TextInput, ActionIcon, SimpleGrid, UnstyledButton, Tooltip, Progress } from '@mantine/core'
+import { Stack, Group, Text, Paper, Box, Badge, Button, TextInput, ActionIcon, SimpleGrid, UnstyledButton, Tooltip, Progress, Select } from '@mantine/core'
 import { Plus, Trash, Check } from '@phosphor-icons/react'
 import { useTaskStore } from '../store/taskStore'
 import { insertSprint, deleteSprint as deleteSprintSvc, updateTask, insertTask, deleteTask as deleteTaskSvc } from '../services/taskService'
@@ -71,6 +71,11 @@ export function SprintTab() {
       : { status: 'done' as const, completed_at: new Date().toISOString() }
     updateTaskStore(t.id, updates)
     await updateTask(t.id, updates).catch(() => {})
+  }
+
+  async function moveToSprint(taskId: string, newSprintId: string | null) {
+    updateTaskStore(taskId, { sprint_id: newSprintId })
+    await updateTask(taskId, { sprint_id: newSprintId }).catch(() => {})
   }
 
   const selected = sprints.find((s) => s.id === selectedSprint)
@@ -158,14 +163,27 @@ export function SprintTab() {
                           </Group>
                         </Box>
                       </Group>
-                      <Tooltip label={t.do_today ? 'Remove from today' : 'Add to today'} withArrow>
-                        <Button size="xs" radius="xl" variant={t.do_today ? 'filled' : 'light'} color="teal" onClick={() => toggleDoToday(t)}>
-                          {t.do_today ? '📌 Today' : '+ Today'}
-                        </Button>
-                      </Tooltip>
-                      <ActionIcon variant="subtle" color="red" size="xs" onClick={() => removeTask(t.id)}>
-                        <Trash size={12} />
-                      </ActionIcon>
+                      <Group gap="xs" wrap="nowrap">
+                        <Select
+                          size="xs"
+                          w={120}
+                          radius="lg"
+                          placeholder="Move →"
+                          data={sprints.filter((s) => s.id !== selectedSprint).map((s) => ({ value: s.id, label: s.name }))}
+                          onChange={(v) => v && moveToSprint(t.id, v)}
+                          value={null}
+                          clearable={false}
+                          comboboxProps={{ withinPortal: true }}
+                        />
+                        <Tooltip label={t.do_today ? 'Remove from today' : 'Add to today'} withArrow>
+                          <Button size="xs" radius="xl" variant={t.do_today ? 'filled' : 'light'} color="teal" onClick={() => toggleDoToday(t)}>
+                            {t.do_today ? '📌 Today' : '+ Today'}
+                          </Button>
+                        </Tooltip>
+                        <ActionIcon variant="subtle" color="red" size="xs" onClick={() => removeTask(t.id)}>
+                          <Trash size={12} />
+                        </ActionIcon>
+                      </Group>
                     </Group>
                   </Paper>
                 )} />

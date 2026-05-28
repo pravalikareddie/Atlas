@@ -5,7 +5,7 @@ import { Button, Modal, Stack, TextInput, Select, Group } from '@mantine/core'
 import { STRINGS } from '../constants/strings'
 import { ROUTES } from '../../../app/routes'
 import { useFinanceStore } from '../store/financeStore'
-import { EXPENSE_GRID_CATEGORIES, getCategoryInfo, INCOME_CATEGORY } from '../constants/categories'
+import { getExpenseGridCategories, getCategoryInfo, INCOME_CATEGORY } from '../constants/categories'
 import { insertExpense } from '../services/expenseService'
 import { insertRefund } from '../services/refundService'
 import { insertSubscription } from '../services/subscriptionService'
@@ -17,6 +17,7 @@ import { USER_ID } from '../../tasks/constants/taskConstants'
 const TABS = [
   { to: ROUTES.FINANCE, label: 'Overview', end: true },
   { to: ROUTES.FINANCE_EXPENSES, label: STRINGS.EXPENSES },
+  { to: ROUTES.FINANCE_GROUPS, label: 'Groups' },
   { to: ROUTES.FINANCE_ACCOUNTS, label: 'Accounts' },
   { to: ROUTES.FINANCE_BUDGETS, label: STRINGS.BUDGETS },
   { to: ROUTES.FINANCE_TAX, label: 'Tax' },
@@ -84,7 +85,7 @@ export function FinanceLayout() {
     }
   }
 
-  const categoryData = EXPENSE_GRID_CATEGORIES.map((k) => {
+  const categoryData = getExpenseGridCategories().map((k) => {
     const c = getCategoryInfo(k)
     return { value: k, label: `${c.emoji} ${c.label}` }
   })

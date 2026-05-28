@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavyCard,SectionHeader } from './FinanceDesign'
+import { NavyCard, SectionHeader } from './FinanceDesign'
 import {
   Stack,
   Group,
@@ -9,27 +9,38 @@ import {
   Progress,
   Badge,
   Button,
+  Modal,
+  ActionIcon,
 } from '@mantine/core'
 import { useFinanceStore } from '../store/financeStore'
 import { useBudgetSummary } from '../hooks/useBudgetSummary'
 import { formatMonthDisplay, daysLeftInMonth } from '../utils/dateUtils'
 import { formatMoneyWhole, dollarsToCents } from '../utils/moneyUtils'
-import { getCategoryInfo, BUDGET_CATEGORIES } from '../constants/categories'
-import { Budget } from '../types/finance.types'
 import {
-  upsertBudget as upsertBudgetDb,
-} from '../services/budgetService'
+  getCategoryInfo,
+  getBudgetCategories,
+  CATEGORIES,
+  addCategory,
+ 
+  removeCategory,
+} from '../constants/categories'
+import { Budget } from '../types/finance.types'
+import { upsertBudget as upsertBudgetDb } from '../services/budgetService'
 import { SkeletonRow } from '../../../shared/components/SkeletonRow'
-import { PencilSimple } from '@phosphor-icons/react'
+import { PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { STRINGS } from '../../tasks/constants/strings'
 import { USER_ID } from '../../tasks/constants/taskConstants'
 
 export function BudgetsScreen() {
-  const { currentMonth, budgets, setBudgets, loading } =
-    useFinanceStore()
+  const { currentMonth, budgets, setBudgets, loading } = useFinanceStore()
   const { rows, totalSpent, totalBudget, totalIncome } = useBudgetSummary()
   const [editing, setEditing] = useState(false)
   const [editValues, setEditValues] = useState<Record<string, string>>({})
+  const [managingCats, setManagingCats] = useState(false)
+  const [newCatKey, setNewCatKey] = useState('')
+  const [newCatLabel, setNewCatLabel] = useState('')
+  const [newCatEmoji, setNewCatEmoji] = useState('')
+  const [, forceUpdate] = useState(0)
 
   if (loading) return <SkeletonRow count={10} />
 
@@ -43,7 +54,7 @@ export function BudgetsScreen() {
       .forEach((b) => {
         vals[b.category] = String(b.amount / 100)
       })
-    BUDGET_CATEGORIES.forEach((cat) => {
+    getBudgetCategories().forEach((cat) => {
       if (!vals[cat]) vals[cat] = '0'
     })
     setEditValues(vals)
@@ -73,6 +84,24 @@ export function BudgetsScreen() {
     }
     setBudgets(results)
     setEditing(false)
+  }
+
+  function handleAddCategory() {
+    if (!newCatKey.trim() || !newCatLabel.trim()) return
+    addCategory({
+      key: newCatKey.trim().toLowerCase().replace(/\s+/g, '_'),
+      label: newCatLabel.trim(),
+      emoji: newCatEmoji.trim() || '📦',
+    })
+    setNewCatKey('')
+    setNewCatLabel('')
+    setNewCatEmoji('')
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleRemoveCategory(key: string) {
+    removeCategory(key)
+    forceUpdate((n) => n + 1)
   }
 
   if (editing) {
@@ -120,7 +149,7 @@ export function BudgetsScreen() {
 
         <NavyCard>
           <Stack gap="md">
-            {BUDGET_CATEGORIES.map((cat) => {
+            {getBudgetCategories().map((cat) => {
               const info = getCategoryInfo(cat)
               return (
                 <Group key={cat} gap="md">
@@ -180,16 +209,28 @@ export function BudgetsScreen() {
               {formatMoneyWhole(totalBudget)} {STRINGS.SPENT}
             </Text>
           </Box>
-          <Button
-            variant="white"
-            color="teal"
-            radius="xl"
-            size="sm"
-            leftSection={<PencilSimple size={14} />}
-            onClick={startEdit}
-          >
-            {STRINGS.EDIT_BUDGETS}
-          </Button>
+          <Group gap="xs">
+            <Button
+              variant="white"
+              color="teal"
+              radius="xl"
+              size="sm"
+              leftSection={<PencilSimple size={14} />}
+              onClick={startEdit}
+            >
+              {STRINGS.EDIT_BUDGETS}
+            </Button>
+            <Button
+              variant="white"
+              color="violet"
+              radius="xl"
+              size="sm"
+              leftSection={<Plus size={14} />}
+              onClick={() => setManagingCats(true)}
+            >
+              Categories
+            </Button>
+          </Group>
         </Group>
         <Box mt="md">
           <Progress
@@ -279,6 +320,78 @@ export function BudgetsScreen() {
           })}
         </Stack>
       </NavyCard>
+
+      {/* Category Management Modal */}
+      <Modal
+        opened={managingCats}
+        onClose={() => setManagingCats(false)}
+        title="Manage Budget Categories"
+        radius="xl"
+        size="md"
+      >
+        <Stack gap="md">
+          {CATEGORIES.map((cat) => (
+            <Group key={cat.key} justify="space-between">
+              <Group gap="sm">
+                <Text style={{ fontSize: 18 }}>{cat.emoji}</Text>
+                <Text size="sm" fw={500}>{cat.label}</Text>
+                <Text size="xs" c="dimmed">({cat.key})</Text>
+              </Group>
+              {cat.key !== 'income' && cat.key !== 'other' && (
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  size="sm"
+                  onClick={() => handleRemoveCategory(cat.key)}
+                >
+                  <Trash size={14} />
+                </ActionIcon>
+              )}
+            </Group>
+          ))}
+
+          <Box style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
+
+          <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+            Add New Category
+          </Text>
+          <Group grow>
+            <TextInput
+              placeholder="Emoji"
+              value={newCatEmoji}
+              onChange={(e) => setNewCatEmoji(e.target.value)}
+              w={60}
+              radius="lg"
+              size="sm"
+            />
+            <TextInput
+              placeholder="Key (e.g. dining)"
+              value={newCatKey}
+              onChange={(e) => setNewCatKey(e.target.value)}
+              radius="lg"
+              size="sm"
+            />
+            <TextInput
+              placeholder="Label (e.g. Dining Out)"
+              value={newCatLabel}
+              onChange={(e) => setNewCatLabel(e.target.value)}
+              radius="lg"
+              size="sm"
+            />
+          </Group>
+          <Button
+            variant="light"
+            color="teal"
+            radius="xl"
+            size="sm"
+            leftSection={<Plus size={14} />}
+            onClick={handleAddCategory}
+            disabled={!newCatKey.trim() || !newCatLabel.trim()}
+          >
+            Add Category
+          </Button>
+        </Stack>
+      </Modal>
     </Stack>
   )
 }

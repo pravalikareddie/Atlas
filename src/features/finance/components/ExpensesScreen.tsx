@@ -32,7 +32,7 @@ import {
 } from '../utils'
 import { ROUTES } from '../../../app/routes'
 import {
-  EXPENSE_GRID_CATEGORIES,
+  getExpenseGridCategories,
   getCategoryInfo,
 } from '../constants/categories'
 import { useFinanceStore } from '../store/financeStore'
@@ -46,6 +46,7 @@ export function ExpensesScreen() {
   const [editExpense, setEditExpense] = useState<Expense | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [month, setMonth] = useState(currentMonth)
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
 
   const monthExpenses = useMemo(
     () => expenses.filter((e) => e.month === month),
@@ -53,11 +54,16 @@ export function ExpensesScreen() {
   )
 
   const filtered = useMemo(() => {
-    if (!categoryFilter) return monthExpenses
-    return monthExpenses.filter((e) => e.category === categoryFilter)
-  }, [monthExpenses, categoryFilter])
+    let list = categoryFilter ? monthExpenses.filter((e) => e.category === categoryFilter) : monthExpenses
+    return [...list].sort((a, b) =>
+      sortOrder === 'newest'
+        ? b.logged_at.localeCompare(a.logged_at)
+        : a.logged_at.localeCompare(b.logged_at),
+    )
+  }, [monthExpenses, categoryFilter, sortOrder])
 
   const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0)
+  const filteredTotal = filtered.reduce((s, e) => s + e.amount, 0)
 
   const uniqueCategories = useMemo(
     () => [...new Set(monthExpenses.map((e) => e.category))],
@@ -176,6 +182,23 @@ export function ExpensesScreen() {
         </Group>
       )}
 
+      {/* Sort & totals */}
+      <Group justify="space-between">
+        <Badge
+          variant="outline"
+          color="gray"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setSortOrder((o) => (o === 'newest' ? 'oldest' : 'newest'))}
+        >
+          {sortOrder === 'newest' ? '↓ Newest' : '↑ Oldest'}
+        </Badge>
+        {categoryFilter && (
+          <Text size="sm" fw={600}>
+            {filtered.length} items · {formatMoneyWhole(filteredTotal)}
+          </Text>
+        )}
+      </Group>
+
       {/* Empty state */}
       {filtered.length === 0 && (
         <Paper p="xl" radius="xl" withBorder ta="center">
@@ -198,7 +221,7 @@ export function ExpensesScreen() {
 
       {/* Expense list — flat, sorted by date */}
       <Stack gap={2}>
-        {[...filtered].sort((a, b) => b.logged_at.localeCompare(a.logged_at)).map((e) => {
+        {filtered.map((e) => {
           const cat = getCategoryInfo(e.category)
           if (confirmId === e.id) {
             return (
@@ -290,7 +313,7 @@ function ExpenseEditModal({
             {STRINGS.CATEGORY}
           </Text>
           <SimpleGrid cols={4} spacing="xs">
-            {EXPENSE_GRID_CATEGORIES.map((key) => {
+            {getExpenseGridCategories().map((key) => {
               const cat = getCategoryInfo(key)
               const sel = category === key
               return (

@@ -38,6 +38,7 @@ import { RoutineRunView } from '../features/routines/components/RoutineRunView'
 import { RoutineEditView } from '../features/routines/components/RoutineEditView'
 import { LogTypeSelector } from '../features/finance/components/LogTypeSelector'
 import { ExpensesScreen } from '../features/finance/components/ExpensesScreen'
+import { ExpenseGroupsScreen } from '../features/finance/components/ExpenseGroupsScreen'
 import { FocusScreen } from '../features/focus/components/FocusScreen'
 import { MeetingsScreen } from '../features/meetings/components/MeetingsScreen'
 import { MeetingDetail } from '../features/meetings/components/MeetingDetail'
@@ -74,6 +75,7 @@ export function App() {
             <Route path="accounts" element={<AccountsScreen />} />
             <Route path="tax" element={<TaxScreen />} />
             <Route path="expenses" element={<ExpensesScreen />} />
+            <Route path="groups" element={<ExpenseGroupsScreen />} />
           </Route>
 
           <Route path={ROUTES.HEALTH} element={<HealthLayout />}>

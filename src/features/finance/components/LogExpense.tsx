@@ -15,7 +15,7 @@ import {
 import { useFinanceStore } from '../store/financeStore'
 import { useBudgetSummary } from '../hooks/useBudgetSummary'
 import {
-  EXPENSE_GRID_CATEGORIES,
+  getExpenseGridCategories,
   getCategoryInfo,
 } from '../constants/categories'
 import {
@@ -204,7 +204,7 @@ export function LogExpense({
               {STRINGS.CATEGORY}
             </Text>
             <SimpleGrid cols={4} spacing="xs">
-              {EXPENSE_GRID_CATEGORIES.map((key) => {
+              {getExpenseGridCategories().map((key) => {
                 const cat = getCategoryInfo(key)
                 const sel = category === key
                 return (

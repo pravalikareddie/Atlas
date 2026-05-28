@@ -15,6 +15,7 @@ export const ROUTES = {
   FINANCE_TAX: '/finance/tax',
   FINANCE_BLEED: '/finance/bleed',
   FINANCE_EXPENSES: '/finance/expenses',
+  FINANCE_GROUPS: '/finance/groups',
   INBOX: '/inbox',
   INBOX_MEETINGS: '/inbox/meetings',
   INBOX_BRAINDUMP: '/inbox/braindump',

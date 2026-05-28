@@ -6,6 +6,8 @@ import {
   SplitwiseEntry,
   Subscription,
   Account,
+  ExpenseGroup,
+  GroupExpense,
 } from '../types/finance.types'
 import { getCurrentMonth } from '../utils/dateUtils'
 
@@ -16,6 +18,8 @@ interface FinanceState {
   splitwise: SplitwiseEntry[]
   subscriptions: Subscription[]
   accounts: Account[]
+  expenseGroups: ExpenseGroup[]
+  groupExpenses: GroupExpense[]
   currentMonth: string
   loading: boolean
   error: string | null
@@ -54,6 +58,18 @@ interface FinanceState {
   updateAccount: (id: string, u: Partial<Account>) => void
   removeAccount: (id: string) => void
 
+  // Expense Groups
+  setExpenseGroups: (g: ExpenseGroup[]) => void
+  addExpenseGroup: (g: ExpenseGroup) => void
+  updateExpenseGroup: (id: string, u: Partial<ExpenseGroup>) => void
+  removeExpenseGroup: (id: string) => void
+
+  // Group Expenses
+  setGroupExpenses: (e: GroupExpense[]) => void
+  addGroupExpense: (e: GroupExpense) => void
+  updateGroupExpense: (id: string, u: Partial<GroupExpense>) => void
+  removeGroupExpense: (id: string) => void
+
   // Meta
   setLoading: (l: boolean) => void
   setError: (e: string | null) => void
@@ -67,6 +83,8 @@ export const useFinanceStore = create<FinanceState>((set) => ({
   splitwise: [],
   subscriptions: [],
   accounts: [],
+  expenseGroups: [],
+  groupExpenses: [],
   currentMonth: getCurrentMonth(),
   loading: false,
   error: null,
@@ -126,6 +144,24 @@ export const useFinanceStore = create<FinanceState>((set) => ({
     })),
   removeAccount: (id) =>
     set((s) => ({ accounts: s.accounts.filter((a) => a.id !== id) })),
+
+  setExpenseGroups: (expenseGroups) => set({ expenseGroups }),
+  addExpenseGroup: (g) => set((s) => ({ expenseGroups: [g, ...s.expenseGroups] })),
+  updateExpenseGroup: (id, u) =>
+    set((s) => ({
+      expenseGroups: s.expenseGroups.map((g) => (g.id === id ? { ...g, ...u } : g)),
+    })),
+  removeExpenseGroup: (id) =>
+    set((s) => ({ expenseGroups: s.expenseGroups.filter((g) => g.id !== id) })),
+
+  setGroupExpenses: (groupExpenses) => set({ groupExpenses }),
+  addGroupExpense: (e) => set((s) => ({ groupExpenses: [e, ...s.groupExpenses] })),
+  updateGroupExpense: (id, u) =>
+    set((s) => ({
+      groupExpenses: s.groupExpenses.map((e) => (e.id === id ? { ...e, ...u } : e)),
+    })),
+  removeGroupExpense: (id) =>
+    set((s) => ({ groupExpenses: s.groupExpenses.filter((e) => e.id !== id) })),
 
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),

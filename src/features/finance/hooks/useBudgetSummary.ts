@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useFinanceStore } from '../store/financeStore'
-import { BUDGET_CATEGORIES, INCOME_CATEGORY } from '../constants/categories'
+import { getBudgetCategories, INCOME_CATEGORY } from '../constants/categories'
 
 export interface BudgetRow {
   category: string
@@ -29,7 +29,7 @@ export function useBudgetSummary() {
 
     const rows: BudgetRow[] = []
 
-    for (const cat of BUDGET_CATEGORIES) {
+    for (const cat of getBudgetCategories()) {
       const budget = monthBudgets.find((b) => b.category === cat)
       const budgetAmt = budget?.amount ?? 0
       const spent = (cat === INCOME_CATEGORY ? monthExpenses : spendingExpenses)

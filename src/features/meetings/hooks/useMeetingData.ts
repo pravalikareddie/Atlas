@@ -1,13 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { fetchMeetings } from '../services/meetingService'
 import { useMeetingStore } from '../store/meetingStore'
 
-
 export function useMeetingData() {
-  const { loading, setLoading, setMeetings } = useMeetingStore()
+  const { setLoading, setMeetings } = useMeetingStore()
+  const fetched = useRef(false)
 
   useEffect(() => {
-    if (loading) return
+    if (fetched.current) return
+    fetched.current = true
     setLoading(true)
     fetchMeetings()
       .then(setMeetings)
