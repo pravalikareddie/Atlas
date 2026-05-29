@@ -21,7 +21,7 @@ import {
   getBudgetCategories,
   CATEGORIES,
   addCategory,
- 
+  updateCategory,
   removeCategory,
 } from '../constants/categories'
 import { Budget } from '../types/finance.types'
@@ -40,6 +40,9 @@ export function BudgetsScreen() {
   const [newCatKey, setNewCatKey] = useState('')
   const [newCatLabel, setNewCatLabel] = useState('')
   const [newCatEmoji, setNewCatEmoji] = useState('')
+  const [editingCatKey, setEditingCatKey] = useState<string | null>(null)
+  const [editCatLabel, setEditCatLabel] = useState('')
+  const [editCatEmoji, setEditCatEmoji] = useState('')
   const [, forceUpdate] = useState(0)
 
   if (loading) return <SkeletonRow count={10} />
@@ -100,7 +103,21 @@ export function BudgetsScreen() {
   }
 
   function handleRemoveCategory(key: string) {
+    const hasExpenses = useFinanceStore.getState().expenses.some((e) => e.category === key)
+    if (hasExpenses) {
+      alert(`Cannot delete "${key}" — there are expenses using this category. Reassign them first.`)
+      return
+    }
     removeCategory(key)
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleUpdateCategory(key: string) {
+    if (!editCatLabel.trim()) return
+    updateCategory(key, { label: editCatLabel.trim(), emoji: editCatEmoji.trim() || '📦' })
+    setEditingCatKey(null)
+    setEditCatLabel('')
+    setEditCatEmoji('')
     forceUpdate((n) => n + 1)
   }
 
@@ -356,20 +373,54 @@ export function BudgetsScreen() {
         <Stack gap="md">
           {CATEGORIES.map((cat) => (
             <Group key={cat.key} justify="space-between">
-              <Group gap="sm">
-                <Text style={{ fontSize: 18 }}>{cat.emoji}</Text>
-                <Text size="sm" fw={500}>{cat.label}</Text>
-                <Text size="xs" c="dimmed">({cat.key})</Text>
-              </Group>
-              {cat.key !== 'income' && cat.key !== 'other' && (
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  size="sm"
-                  onClick={() => handleRemoveCategory(cat.key)}
-                >
-                  <Trash size={14} />
-                </ActionIcon>
+              {editingCatKey === cat.key ? (
+                <Group gap="xs" style={{ flex: 1 }}>
+                  <TextInput
+                    value={editCatEmoji}
+                    onChange={(e) => setEditCatEmoji(e.target.value)}
+                    w={50}
+                    size="xs"
+                    radius="lg"
+                  />
+                  <TextInput
+                    value={editCatLabel}
+                    onChange={(e) => setEditCatLabel(e.target.value)}
+                    size="xs"
+                    radius="lg"
+                    style={{ flex: 1 }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUpdateCategory(cat.key)}
+                  />
+                  <Button size="xs" radius="xl" variant="light" color="teal" onClick={() => handleUpdateCategory(cat.key)}>Save</Button>
+                  <Button size="xs" radius="xl" variant="subtle" onClick={() => setEditingCatKey(null)}>✕</Button>
+                </Group>
+              ) : (
+                <>
+                  <Group gap="sm">
+                    <Text style={{ fontSize: 18 }}>{cat.emoji}</Text>
+                    <Text size="sm" fw={500}>{cat.label}</Text>
+                    <Text size="xs" c="dimmed">({cat.key})</Text>
+                  </Group>
+                  <Group gap={4}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="blue"
+                      size="sm"
+                      onClick={() => { setEditingCatKey(cat.key); setEditCatLabel(cat.label); setEditCatEmoji(cat.emoji) }}
+                    >
+                      <PencilSimple size={14} />
+                    </ActionIcon>
+                    {cat.key !== 'income' && cat.key !== 'other' && (
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        size="sm"
+                        onClick={() => handleRemoveCategory(cat.key)}
+                      >
+                        <Trash size={14} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+                </>
               )}
             </Group>
           ))}
