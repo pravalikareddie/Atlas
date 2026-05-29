@@ -64,13 +64,28 @@ export function ExpenseGroupsScreen() {
   const [editingExpense, setEditingExpense] = useState<GroupExpense | null>(null)
   const [confirmDeleteExp, setConfirmDeleteExp] = useState<string | null>(null)
 
+  // Sort & filter for group detail
+  const [groupSort, setGroupSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest')
+  const [groupCatFilter, setGroupCatFilter] = useState<string | null>(null)
+
   const selected = expenseGroups.find((g) => g.id === selectedId)
-  const selectedExpenses = useMemo(
+  const selectedExpensesRaw = useMemo(
     () => groupExpenses.filter((e) => e.group_id === selectedId),
     [groupExpenses, selectedId],
   )
-  const selectedTotal = selectedExpenses.reduce((s, e) => s + e.amount, 0)
-  const pendingFollowUps = selectedExpenses.filter((e) => e.tag && e.tag !== 'expense' && e.tag_status === 'pending')
+  const selectedExpenses = useMemo(() => {
+    let list = groupCatFilter ? selectedExpensesRaw.filter((e) => e.category === groupCatFilter) : selectedExpensesRaw
+    return [...list].sort((a, b) => {
+      switch (groupSort) {
+        case 'oldest': return a.logged_at.localeCompare(b.logged_at)
+        case 'highest': return b.amount - a.amount
+        case 'lowest': return a.amount - b.amount
+        default: return b.logged_at.localeCompare(a.logged_at)
+      }
+    })
+  }, [selectedExpensesRaw, groupSort, groupCatFilter])
+  const selectedTotal = selectedExpensesRaw.reduce((s, e) => s + e.amount, 0)
+  const pendingFollowUps = selectedExpensesRaw.filter((e) => e.tag && e.tag !== 'expense' && e.tag_status === 'pending')
   const splitwiseOwed = pendingFollowUps
     .filter((e) => e.tag === 'splitwise')
     .reduce((s, e) => {
@@ -153,7 +168,7 @@ export function ExpenseGroupsScreen() {
     const splitCount = expTag === 'splitwise' && expSplitCount ? parseInt(expSplitCount) || null : null
 
     if (editingExpense) {
-      const u = { amount: cents, category: expCategory || 'other', note: expNote || null, include_in_monthly: expInclude, tag: (expTag as any) || null, tag_status: expTag && expTag !== 'expense' ? 'pending' as const : null, split_count: splitCount }
+      const u = { amount: cents, category: expCategory, note: expNote || null, include_in_monthly: expInclude, tag: (expTag as any) || null, tag_status: expTag && expTag !== 'expense' ? 'pending' as const : null, split_count: splitCount }
       updateGroupExpense(editingExpense.id, u)
       try { await updateGExpDb(editingExpense.id, u) } catch {}
     } else {
@@ -161,7 +176,7 @@ export function ExpenseGroupsScreen() {
         user_id: USER_ID,
         group_id: selectedId,
         amount: cents,
-        category: expCategory || 'other',
+        category: expCategory,
         note: expNote || null,
         logged_at: new Date().toISOString(),
         include_in_monthly: expInclude,
@@ -208,11 +223,11 @@ export function ExpenseGroupsScreen() {
   const groupCategoryBreakdown = useMemo(() => {
     if (!selectedId) return []
     const map = new Map<string, number>()
-    selectedExpenses.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount))
+    selectedExpensesRaw.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount))
     return [...map.entries()]
       .map(([category, amount]) => ({ category, amount, pct: selectedTotal > 0 ? (amount / selectedTotal) * 100 : 0 }))
       .sort((a, b) => b.amount - a.amount)
-  }, [selectedExpenses, selectedTotal, selectedId])
+  }, [selectedExpensesRaw, selectedTotal, selectedId])
 
   function chatAboutGroup() {
     if (!selected) return
@@ -321,6 +336,51 @@ export function ExpenseGroupsScreen() {
           </Paper>
         )}
 
+        {/* Sort & filter */}
+        <Group gap="xs" wrap="wrap">
+          <Select
+            size="xs"
+            radius="lg"
+            w={120}
+            value={groupSort}
+            onChange={(v) => v && setGroupSort(v as any)}
+            data={[
+              { value: 'newest', label: '↓ Newest' },
+              { value: 'oldest', label: '↑ Oldest' },
+              { value: 'highest', label: '$ High' },
+              { value: 'lowest', label: '$ Low' },
+            ]}
+          />
+          {groupCategoryBreakdown.length > 1 && (
+            <>
+              <Badge
+                variant={!groupCatFilter ? 'filled' : 'outline'}
+                color="teal"
+                size="sm"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setGroupCatFilter(null)}
+              >
+                All
+              </Badge>
+              {groupCategoryBreakdown.map((c) => {
+                const info = getCategoryInfo(c.category)
+                return (
+                  <Badge
+                    key={c.category}
+                    variant={groupCatFilter === c.category ? 'filled' : 'outline'}
+                    color="teal"
+                    size="sm"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setGroupCatFilter(groupCatFilter === c.category ? null : c.category)}
+                  >
+                    {info.emoji} {info.label}
+                  </Badge>
+                )
+              })}
+            </>
+          )}
+        </Group>
+
         <Stack gap={2}>
           {selectedExpenses.map((e) => {
             const cat = getCategoryInfo(e.category)
@@ -387,7 +447,7 @@ export function ExpenseGroupsScreen() {
               data={categoryData}
               radius="lg"
               placeholder={STRINGS.WHERE_IT_WENT}
-              clearable
+              searchable
             />
             <TextInput
               label={STRINGS.FIELD_NOTE}
@@ -433,7 +493,7 @@ export function ExpenseGroupsScreen() {
                 gradient={{ from: 'teal', to: 'blue' }}
                 radius="xl"
                 onClick={handleSaveExpense}
-                disabled={!expAmount}
+                disabled={!expAmount || !expCategory}
               >
                 {editingExpense ? STRINGS.SAVE_CHANGES : STRINGS.ADD}
               </Button>
