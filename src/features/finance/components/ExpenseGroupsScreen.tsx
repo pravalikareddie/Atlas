@@ -8,6 +8,7 @@ import {
   Group,
   Modal,
   Paper,
+  RingProgress,
   Select,
   SimpleGrid,
   Stack,
@@ -15,7 +16,7 @@ import {
   TextInput,
   UnstyledButton,
 } from '@mantine/core'
-import { CaretLeft, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
+import { CaretLeft, ChatCircle, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { useFinanceStore } from '../store/financeStore'
 import { ExpenseGroup, GroupExpense } from '../types/finance.types'
 import {
@@ -202,6 +203,25 @@ export function ExpenseGroupsScreen() {
     return { value: k, label: `${c.emoji} ${c.label}` }
   })
 
+  const RING_COLORS = ['teal', 'blue', 'violet', 'orange', 'pink', 'cyan', 'yellow', 'red', 'green', 'grape']
+
+  const groupCategoryBreakdown = useMemo(() => {
+    if (!selectedId) return []
+    const map = new Map<string, number>()
+    selectedExpenses.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount))
+    return [...map.entries()]
+      .map(([category, amount]) => ({ category, amount, pct: selectedTotal > 0 ? (amount / selectedTotal) * 100 : 0 }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [selectedExpenses, selectedTotal, selectedId])
+
+  function chatAboutGroup() {
+    if (!selected) return
+    const summary = groupCategoryBreakdown.map((c) => `${getCategoryInfo(c.category).label}: ${formatMoneyWhole(c.amount)}`).join(', ')
+    import('../../chat/ChatWidget').then((m) =>
+      m.chatAboutItem('finance', `Expense group "${selected.name}" — Total: ${formatMoneyWhole(selectedTotal)}. Breakdown: ${summary}. ${pendingFollowUps.length} pending follow-ups.`),
+    )
+  }
+
   // ─── Detail view ────────────────────────────────────────────────────────────
   if (selected) {
     return (
@@ -220,6 +240,9 @@ export function ExpenseGroupsScreen() {
           </Group>
           <Group gap="xs">
             <Text fw={700}>{formatMoneyWhole(selectedTotal)}</Text>
+            <ActionIcon variant="light" color="blue" radius="xl" size="sm" onClick={chatAboutGroup}>
+              <ChatCircle size={14} />
+            </ActionIcon>
             <Button
               variant="light"
               color="teal"
@@ -232,6 +255,42 @@ export function ExpenseGroupsScreen() {
             </Button>
           </Group>
         </Group>
+
+        {/* Category breakdown ring */}
+        {groupCategoryBreakdown.length > 1 && (
+          <Paper p="lg" radius="xl" withBorder>
+            <Group gap="lg" align="center" wrap="nowrap">
+              <RingProgress
+                size={120}
+                thickness={12}
+                roundCaps
+                label={
+                  <Box ta="center">
+                    <Text fw={700} size="sm">{formatMoneyWhole(selectedTotal)}</Text>
+                  </Box>
+                }
+                sections={groupCategoryBreakdown.map((c, i) => ({
+                  value: c.pct,
+                  color: `var(--mantine-color-${RING_COLORS[i % RING_COLORS.length]}-5)`,
+                  tooltip: `${getCategoryInfo(c.category).label}: ${formatMoneyWhole(c.amount)}`,
+                }))}
+              />
+              <Stack gap={4} style={{ flex: 1 }}>
+                {groupCategoryBreakdown.map((c, i) => {
+                  const info = getCategoryInfo(c.category)
+                  return (
+                    <Group key={c.category} gap="sm" py={2}>
+                      <Box w={8} h={8} style={{ borderRadius: '50%', background: `var(--mantine-color-${RING_COLORS[i % RING_COLORS.length]}-5)`, flexShrink: 0 }} />
+                      <Text size="xs" fw={500} style={{ flex: 1 }}>{info.emoji} {info.label}</Text>
+                      <Text size="xs" fw={600}>{formatMoneyWhole(c.amount)}</Text>
+                      <Text size="xs" c="dimmed">{Math.round(c.pct)}%</Text>
+                    </Group>
+                  )
+                })}
+              </Stack>
+            </Group>
+          </Paper>
+        )}
 
         {selectedExpenses.length === 0 && (
           <Paper p="xl" radius="xl" withBorder ta="center">

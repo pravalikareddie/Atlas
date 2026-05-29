@@ -279,47 +279,71 @@ export function BudgetsScreen() {
         </NavyCard>
       )}
 
-      {/* Flat category list */}
-      <NavyCard>
-        <SectionHeader label="By category" />
-        <Stack gap="md">
-          {rows.length === 0 && (
-            <Text size="sm" c="dimmed">
-              No budget set. Tap Edit Budgets to set limits.
-            </Text>
-          )}
-          {rows.map((row) => {
-            const cat = getCategoryInfo(row.category)
-            return (
-              <Box key={row.category}>
-                <Group gap="md" wrap="nowrap" mb={4}>
-                  <Text style={{ fontSize: 18, width: 24 }}>{cat.emoji}</Text>
-                  <Text size="sm" fw={600} style={{ flex: 1 }}>
-                    {cat.label}
-                  </Text>
-                  <Text size="xs" c={row.overBudget ? 'red' : 'dimmed'}>
-                    {formatMoneyWhole(row.spent)} /{' '}
-                    {formatMoneyWhole(row.budget)}
-                  </Text>
-                  {row.overBudget && (
-                    <Badge variant="urgent">{STRINGS.OVER}</Badge>
-                  )}
-                  {row.goalMet && <Badge variant="done">✓</Badge>}
-                </Group>
-                <Progress
-                  value={Math.min(row.ratio * 100, 100)}
-                  color={
-                    row.overBudget ? 'red' : row.goalMet ? 'green' : 'teal'
-                  }
-                  bg="rgba(255,255,255,0.1)"
-                  radius="xl"
-                  size="xs"
-                />
-              </Box>
-            )
-          })}
-        </Stack>
-      </NavyCard>
+      {/* Category list — split fixed vs variable */}
+      {(() => {
+        const FIXED_KEYS = new Set(['rent', 'phone', 'internet', 'emi1', 'emi2'])
+        const fixedRows = rows.filter((r) => FIXED_KEYS.has(r.category))
+        const variableRows = rows.filter((r) => !FIXED_KEYS.has(r.category) && r.category !== 'income' && r.category !== 'savings' && r.category !== 'investing')
+        const savingsRows = rows.filter((r) => r.category === 'savings' || r.category === 'investing')
+
+        function CategoryRow({ row }: { row: typeof rows[0] }) {
+          const cat = getCategoryInfo(row.category)
+          return (
+            <Box>
+              <Group gap="md" wrap="nowrap" mb={4}>
+                <Text style={{ fontSize: 18, width: 24 }}>{cat.emoji}</Text>
+                <Text size="sm" fw={600} style={{ flex: 1 }}>{cat.label}</Text>
+                <Text size="xs" c={row.overBudget ? 'red' : 'dimmed'}>
+                  {formatMoneyWhole(row.spent)} / {formatMoneyWhole(row.budget)}
+                </Text>
+                {row.overBudget && <Badge variant="urgent">{STRINGS.OVER}</Badge>}
+                {row.goalMet && <Badge variant="done">✓</Badge>}
+              </Group>
+              <Progress
+                value={Math.min(row.ratio * 100, 100)}
+                color={row.overBudget ? 'red' : row.goalMet ? 'green' : 'teal'}
+                bg="rgba(255,255,255,0.1)"
+                radius="xl"
+                size="xs"
+              />
+            </Box>
+          )
+        }
+
+        return (
+          <>
+            {fixedRows.length > 0 && (
+              <NavyCard>
+                <SectionHeader label={`Fixed Bills · ${formatMoneyWhole(fixedRows.reduce((s, r) => s + r.spent, 0))} / ${formatMoneyWhole(fixedRows.reduce((s, r) => s + r.budget, 0))}`} />
+                <Stack gap="md">
+                  {fixedRows.map((row) => <CategoryRow key={row.category} row={row} />)}
+                </Stack>
+              </NavyCard>
+            )}
+            {variableRows.length > 0 && (
+              <NavyCard>
+                <SectionHeader label={`Variable · ${formatMoneyWhole(variableRows.reduce((s, r) => s + r.spent, 0))} / ${formatMoneyWhole(variableRows.reduce((s, r) => s + r.budget, 0))}`} />
+                <Stack gap="md">
+                  {variableRows.map((row) => <CategoryRow key={row.category} row={row} />)}
+                </Stack>
+              </NavyCard>
+            )}
+            {savingsRows.length > 0 && (
+              <NavyCard>
+                <SectionHeader label={`Savings & Investing · ${formatMoneyWhole(savingsRows.reduce((s, r) => s + r.spent, 0))} / ${formatMoneyWhole(savingsRows.reduce((s, r) => s + r.budget, 0))}`} />
+                <Stack gap="md">
+                  {savingsRows.map((row) => <CategoryRow key={row.category} row={row} />)}
+                </Stack>
+              </NavyCard>
+            )}
+            {rows.length === 0 && (
+              <NavyCard>
+                <Text size="sm" c="dimmed">No budget set. Tap Edit Budgets to set limits.</Text>
+              </NavyCard>
+            )}
+          </>
+        )
+      })()}
 
       {/* Category Management Modal */}
       <Modal
