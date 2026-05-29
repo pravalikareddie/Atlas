@@ -312,9 +312,15 @@ export function ExpensesScreen() {
         </Paper>
       )}
 
-      {/* Expense list — flat, sorted by date */}
-      <Stack gap={2}>
-        {filtered.map((e) => {
+      {/* Expense list — grouped by fixed/variable */}
+      {(() => {
+        const FIXED_KEYS = new Set(['rent', 'phone', 'internet', 'emi1', 'emi2'])
+        const fixedExpenses = filtered.filter((e) => FIXED_KEYS.has(e.category))
+        const variableExpenses = filtered.filter((e) => !FIXED_KEYS.has(e.category))
+        const fixedTotal = fixedExpenses.reduce((s, e) => s + e.amount, 0)
+        const variableTotal = variableExpenses.reduce((s, e) => s + e.amount, 0)
+
+        function ExpenseRow({ e }: { e: Expense }) {
           const cat = getCategoryInfo(e.category)
           if (confirmId === e.id) {
             return (
@@ -328,7 +334,7 @@ export function ExpensesScreen() {
             )
           }
           return (
-            <Group key={e.id} gap="sm" py={8} px={4} wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+            <Group gap="sm" py={8} px={4} wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
               <Text style={{ fontSize: 16, flexShrink: 0 }}>{cat.emoji}</Text>
               <Text size="sm" fw={600} truncate style={{ flex: 1 }}>{e.note || cat.label}</Text>
               <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{formatDateShort(e.logged_at)}</Text>
@@ -353,8 +359,29 @@ export function ExpensesScreen() {
               <ActionIcon variant="subtle" color="red" size="xs" onClick={() => setConfirmId(e.id)}><Trash size={12} /></ActionIcon>
             </Group>
           )
-        })}
-      </Stack>
+        }
+
+        return (
+          <Stack gap="md">
+            {fixedExpenses.length > 0 && (
+              <Paper p="md" radius="lg" withBorder>
+                <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="sm">Fixed Bills · {formatMoneyWhole(fixedTotal)}</Text>
+                <Stack gap={2}>
+                  {fixedExpenses.map((e) => <ExpenseRow key={e.id} e={e} />)}
+                </Stack>
+              </Paper>
+            )}
+            {variableExpenses.length > 0 && (
+              <Paper p="md" radius="lg" withBorder>
+                <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="sm">Variable · {formatMoneyWhole(variableTotal)}</Text>
+                <Stack gap={2}>
+                  {variableExpenses.map((e) => <ExpenseRow key={e.id} e={e} />)}
+                </Stack>
+              </Paper>
+            )}
+          </Stack>
+        )
+      })()}
 
       {/* Edit modal */}
       {editExpense && (
