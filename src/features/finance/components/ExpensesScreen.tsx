@@ -10,6 +10,7 @@ import {
   Menu,
   Modal,
   Paper,
+  RingProgress,
   SimpleGrid,
   Stack,
   Text,
@@ -73,6 +74,16 @@ export function ExpensesScreen() {
     () => [...new Set(monthExpenses.map((e) => e.category))],
     [monthExpenses],
   )
+
+  const categoryBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    monthExpenses.forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + e.amount))
+    return [...map.entries()]
+      .map(([category, amount]) => ({ category, amount, pct: totalSpent > 0 ? (amount / totalSpent) * 100 : 0 }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [monthExpenses, totalSpent])
+
+  const RING_COLORS = ['teal', 'blue', 'violet', 'orange', 'pink', 'cyan', 'yellow', 'red', 'green', 'grape']
 
   async function handleDelete(id: string) {
     removeExpense(id)
@@ -175,6 +186,53 @@ export function ExpensesScreen() {
           </Group>
         </Group>
       </Box>
+
+      {/* Category breakdown chart */}
+      {categoryBreakdown.length > 0 && (
+        <Paper p="lg" radius="xl" withBorder>
+          <Group gap="lg" align="center" wrap="nowrap">
+            <RingProgress
+              size={140}
+              thickness={14}
+              roundCaps
+              label={
+                <Box ta="center">
+                  <Text size="xs" c="dimmed">Total</Text>
+                  <Text fw={700} size="sm">{formatMoneyWhole(totalSpent)}</Text>
+                </Box>
+              }
+              sections={categoryBreakdown.map((c, i) => ({
+                value: c.pct,
+                color: `var(--mantine-color-${RING_COLORS[i % RING_COLORS.length]}-5)`,
+                tooltip: `${getCategoryInfo(c.category).label}: ${formatMoneyWhole(c.amount)}`,
+              }))}
+            />
+            <Stack gap={4} style={{ flex: 1 }}>
+              {categoryBreakdown.map((c, i) => {
+                const info = getCategoryInfo(c.category)
+                const isActive = categoryFilter === c.category
+                return (
+                  <UnstyledButton
+                    key={c.category}
+                    onClick={() => setCategoryFilter(isActive ? null : c.category)}
+                    style={{ width: '100%' }}
+                  >
+                    <Group gap="sm" py={4} px="xs" style={{
+                      borderRadius: 'var(--mantine-radius-md)',
+                      background: isActive ? `var(--mantine-color-${RING_COLORS[i % RING_COLORS.length]}-light)` : 'transparent',
+                    }}>
+                      <Box w={10} h={10} style={{ borderRadius: '50%', background: `var(--mantine-color-${RING_COLORS[i % RING_COLORS.length]}-5)`, flexShrink: 0 }} />
+                      <Text size="xs" fw={isActive ? 700 : 500} style={{ flex: 1 }}>{info.emoji} {info.label}</Text>
+                      <Text size="xs" fw={600}>{formatMoneyWhole(c.amount)}</Text>
+                      <Text size="xs" c="dimmed">{Math.round(c.pct)}%</Text>
+                    </Group>
+                  </UnstyledButton>
+                )
+              })}
+            </Stack>
+          </Group>
+        </Paper>
+      )}
 
       {/* Category filter */}
       {uniqueCategories.length > 0 && (
