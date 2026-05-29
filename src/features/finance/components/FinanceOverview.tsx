@@ -208,68 +208,70 @@ export function FinanceOverview() {
         </NavyCard>
       )}
 
-      {/* Budget rows — flat, no groups */}
-      {rows.filter((r) => r.category !== INCOME_CATEGORY).length > 0 && (
-        <NavyCard>
-          <SectionHeader
-            label="Budget"
-            right={
-              <Button
-                variant="subtle"
-                color="teal"
-                size="xs"
-                radius="xl"
-                onClick={() => navigate(ROUTES.FINANCE_BUDGETS)}
-              >
-                {STRINGS.VIEW_ALL}
-              </Button>
-            }
-          />
-          <Stack gap="md">
-            {rows
-              .filter((r) => r.category !== INCOME_CATEGORY)
-              .map((row) => {
-                const cat = getCategoryInfo(row.category)
-                return (
-                  <Group key={row.category} gap="md" wrap="nowrap">
-                    <Text w={20}>{cat.emoji}</Text>
-                    <Text size="sm" w={90} truncate>
-                      {cat.label}
-                    </Text>
-                    <Box style={{ flex: 1 }}>
-                      <Progress
-                        value={Math.min(row.ratio * 100, 100)}
-                        color={
-                          row.overBudget
-                            ? 'red'
-                            : row.goalMet
-                              ? 'green'
-                              : 'teal'
-                        }
-                        bg="rgba(255,255,255,0.1)"
-                        radius="xl"
-                        size="sm"
-                      />
-                    </Box>
-                    <Text
-                      size="xs"
-                      c={row.overBudget ? 'red' : 'dimmed'}
-                      w={90}
-                      ta="right"
-                    >
-                      {formatMoneyWhole(row.spent)}/
-                      {formatMoneyWhole(row.budget)}
-                    </Text>
-                    {row.overBudget && (
-                      <Badge variant="urgent">{STRINGS.OVER}</Badge>
-                    )}
-                    {row.goalMet && <Badge variant="done">✓</Badge>}
-                  </Group>
-                )
-              })}
-          </Stack>
-        </NavyCard>
-      )}
+      {/* Budget rows — split into Fixed Bills and Variable */}
+      {rows.filter((r) => r.category !== INCOME_CATEGORY).length > 0 && (() => {
+        const FIXED_KEYS = new Set(['rent', 'phone', 'internet', 'emi1', 'emi2'])
+        const fixedRows = rows.filter((r) => FIXED_KEYS.has(r.category))
+        const variableRows = rows.filter((r) => r.category !== INCOME_CATEGORY && !FIXED_KEYS.has(r.category) && r.category !== 'savings' && r.category !== 'investing')
+        const fixedTotal = fixedRows.reduce((s, r) => s + r.spent, 0)
+        const fixedBudget = fixedRows.reduce((s, r) => s + r.budget, 0)
+        const variableTotal = variableRows.reduce((s, r) => s + r.spent, 0)
+        const variableBudget = variableRows.reduce((s, r) => s + r.budget, 0)
+
+        function BudgetRow({ row }: { row: typeof rows[0] }) {
+          const cat = getCategoryInfo(row.category)
+          return (
+            <Group gap="md" wrap="nowrap">
+              <Text w={20}>{cat.emoji}</Text>
+              <Text size="sm" w={90} truncate>{cat.label}</Text>
+              <Box style={{ flex: 1 }}>
+                <Progress
+                  value={Math.min(row.ratio * 100, 100)}
+                  color={row.overBudget ? 'red' : row.goalMet ? 'green' : 'teal'}
+                  bg="rgba(255,255,255,0.1)"
+                  radius="xl"
+                  size="sm"
+                />
+              </Box>
+              <Text size="xs" c={row.overBudget ? 'red' : 'dimmed'} w={90} ta="right">
+                {formatMoneyWhole(row.spent)}/{formatMoneyWhole(row.budget)}
+              </Text>
+              {row.overBudget && <Badge variant="urgent">{STRINGS.OVER}</Badge>}
+              {row.goalMet && <Badge variant="done">✓</Badge>}
+            </Group>
+          )
+        }
+
+        return (
+          <>
+            {fixedRows.length > 0 && (
+              <NavyCard>
+                <SectionHeader
+                  label={`Fixed Bills · ${formatMoneyWhole(fixedTotal)}${fixedBudget > 0 ? ` / ${formatMoneyWhole(fixedBudget)}` : ''}`}
+                />
+                <Stack gap="md">
+                  {fixedRows.map((row) => <BudgetRow key={row.category} row={row} />)}
+                </Stack>
+              </NavyCard>
+            )}
+            {variableRows.length > 0 && (
+              <NavyCard>
+                <SectionHeader
+                  label={`Variable · ${formatMoneyWhole(variableTotal)}${variableBudget > 0 ? ` / ${formatMoneyWhole(variableBudget)}` : ''}`}
+                  right={
+                    <Button variant="subtle" color="teal" size="xs" radius="xl" onClick={() => navigate(ROUTES.FINANCE_BUDGETS)}>
+                      {STRINGS.VIEW_ALL}
+                    </Button>
+                  }
+                />
+                <Stack gap="md">
+                  {variableRows.map((row) => <BudgetRow key={row.category} row={row} />)}
+                </Stack>
+              </NavyCard>
+            )}
+          </>
+        )
+      })()}
 
       {/* Month info */}
       <Text size="xs" c="dimmed" ta="center">
