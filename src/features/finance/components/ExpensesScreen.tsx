@@ -7,6 +7,7 @@ import {
   Button,
   Divider,
   Group,
+  Menu,
   Modal,
   Paper,
   SimpleGrid,
@@ -18,6 +19,7 @@ import {
 import {
   CaretLeft,
   CaretRight,
+  FolderPlus,
   PencilSimple,
   Plus,
   Trash,
@@ -37,10 +39,12 @@ import {
 } from '../constants/categories'
 import { useFinanceStore } from '../store/financeStore'
 import { deleteExpense as deleteExpenseDb, updateExpense as updateExpenseDb } from '../services/expenseService'
+import { insertGroupExpense } from '../services/groupExpenseService'
 import { STRINGS } from '../../tasks/constants/strings'
+import { STRINGS as F_STRINGS } from '../constants/strings'
 
 export function ExpensesScreen() {
-  const { expenses, removeExpense, currentMonth } = useFinanceStore()
+  const { expenses, removeExpense, currentMonth, expenseGroups, addGroupExpense } = useFinanceStore()
   const navigate = useNavigate()
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [editExpense, setEditExpense] = useState<Expense | null>(null)
@@ -49,7 +53,7 @@ export function ExpensesScreen() {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
 
   const monthExpenses = useMemo(
-    () => expenses.filter((e) => e.month === month),
+    () => expenses.filter((e) => e.month === month && e.category !== 'income' && e.category !== 'savings' && e.category !== 'investing'),
     [expenses, month],
   )
 
@@ -76,6 +80,23 @@ export function ExpensesScreen() {
       await deleteExpenseDb(id)
     } catch {}
     setConfirmId(null)
+  }
+
+  async function handleAddToGroup(expense: Expense, groupId: string) {
+    const row = {
+      user_id: expense.user_id,
+      group_id: groupId,
+      amount: expense.amount,
+      category: expense.category,
+      note: expense.note,
+      logged_at: expense.logged_at,
+      include_in_monthly: true,
+    }
+    try {
+      addGroupExpense(await insertGroupExpense(row))
+    } catch {
+      addGroupExpense({ ...row, id: crypto.randomUUID(), created_at: new Date().toISOString() })
+    }
   }
 
   return (
@@ -240,6 +261,22 @@ export function ExpensesScreen() {
               <Text size="sm" fw={600} truncate style={{ flex: 1 }}>{e.note || cat.label}</Text>
               <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{formatDateShort(e.logged_at)}</Text>
               <Text size="sm" fw={700} style={{ flexShrink: 0 }}>{formatMoneyWhole(e.amount)}</Text>
+              <Menu position="bottom-end" withArrow>
+                <Menu.Target>
+                  <ActionIcon variant="subtle" size="xs" color="blue"><FolderPlus size={12} /></ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Label>{F_STRINGS.ADD_TO_GROUP}</Menu.Label>
+                  {expenseGroups.filter((g) => g.status === 'active').length === 0 && (
+                    <Menu.Item disabled>{F_STRINGS.NO_GROUPS_AVAILABLE}</Menu.Item>
+                  )}
+                  {expenseGroups.filter((g) => g.status === 'active').map((g) => (
+                    <Menu.Item key={g.id} onClick={() => handleAddToGroup(e, g.id)}>
+                      {g.emoji ?? '📂'} {g.name}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
               <ActionIcon variant="subtle" size="xs" onClick={() => setEditExpense(e)}><PencilSimple size={12} /></ActionIcon>
               <ActionIcon variant="subtle" color="red" size="xs" onClick={() => setConfirmId(e.id)}><Trash size={12} /></ActionIcon>
             </Group>

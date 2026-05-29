@@ -505,27 +505,7 @@ export function TodayScreen() {
           </Group>
         </Box>
 
-        {/* ── Weekly focus + AI summary ─────────────────────────────── */}
-        {weeklyFocus && (
-          <Box
-            px="xl"
-            py="md"
-            style={{
-              background: 'var(--mantine-color-navy-9)',
-              borderBottom: `1px solid ${COLORS.TEAL_15}`,
-            }}
-          >
-            <Group gap="sm" align="center">
-              <Text size="xs" fw={600} tt="uppercase" lts="0.12em" c="teal">
-                This week&apos;s focus
-              </Text>
-              <Text c="teal">—</Text>
-              <Text size="sm" fw={600} c="white" lh={1}>
-                {weeklyFocus}
-              </Text>
-            </Group>
-          </Box>
-        )}
+
 
         {/* ── Today Tab ─────────────────────────────────────────────── */}
         {activeTab === 'today' && (

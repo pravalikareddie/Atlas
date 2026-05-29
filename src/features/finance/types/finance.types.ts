@@ -128,48 +128,11 @@ export interface GroupExpense {
   note: string | null
   logged_at: string
   include_in_monthly: boolean
+  tag: 'expense' | 'splitwise' | 'refund' | 'return' | null
+  tag_status: 'pending' | 'settled' | null
+  split_count: number | null // how many people splitting (including you)
   created_at: string
 }
 
-export interface ExpenseGroup {
-  id: string
-  user_id: string
-  name: string
-  emoji: string | null
-  status: 'active' | 'closed'
-  created_at: string
-}
+export type GroupExpenseTag = NonNullable<GroupExpense['tag']>
 
-export interface GroupExpense {
-  id: string
-  user_id: string
-  group_id: string
-  amount: number // cents
-  category: string
-  note: string | null
-  logged_at: string
-  include_in_monthly: boolean
-  created_at: string
-}
-
-export interface Trip {
-  id: string
-  user_id: string
-  name: string
-  start_date: string | null
-  end_date: string | null
-  status: 'active' | 'completed'
-  created_at: string
-}
-
-export interface TripExpense {
-  id: string
-  user_id: string
-  trip_id: string
-  amount: number // cents
-  category: string
-  note: string | null
-  logged_at: string
-  include_in_monthly: boolean
-  created_at: string
-}

@@ -53,14 +53,15 @@ export function resetCategories() {
 }
 
 // Shown in log expense grid — income excluded
+export const INCOME_CATEGORY = 'income'
+const NON_EXPENSE_KEYS = new Set(['income', 'savings', 'investing'])
+
 export const EXPENSE_GRID_CATEGORIES = (() => CATEGORIES.filter(
-  (c) => c.key !== 'income',
+  (c) => !NON_EXPENSE_KEYS.has(c.key),
 ).map((c) => c.key))()
 
 // All categories including income (used in budget flat list)
 export const BUDGET_CATEGORIES = (() => CATEGORIES.map((c) => c.key))()
-
-export const INCOME_CATEGORY = 'income'
 
 export function getCategoryInfo(key: string): CategoryInfo {
   return (
@@ -69,7 +70,7 @@ export function getCategoryInfo(key: string): CategoryInfo {
 }
 
 export function getExpenseGridCategories(): string[] {
-  return CATEGORIES.filter((c) => c.key !== 'income').map((c) => c.key)
+  return CATEGORIES.filter((c) => !NON_EXPENSE_KEYS.has(c.key)).map((c) => c.key)
 }
 
 export function getBudgetCategories(): string[] {

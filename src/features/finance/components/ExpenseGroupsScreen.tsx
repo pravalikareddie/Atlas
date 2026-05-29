@@ -31,6 +31,7 @@ import { getExpenseGridCategories, getCategoryInfo } from '../constants/categori
 import { dollarsToCents, formatMoneyWhole } from '../utils/moneyUtils'
 import { formatDateShort } from '../utils'
 import { USER_ID } from '../../tasks/constants/taskConstants'
+import { STRINGS } from '../constants/strings'
 
 export function ExpenseGroupsScreen() {
   const {
@@ -57,6 +58,8 @@ export function ExpenseGroupsScreen() {
   const [expCategory, setExpCategory] = useState('')
   const [expNote, setExpNote] = useState('')
   const [expInclude, setExpInclude] = useState(false)
+  const [expTag, setExpTag] = useState<string | null>(null)
+  const [expSplitCount, setExpSplitCount] = useState('')
   const [editingExpense, setEditingExpense] = useState<GroupExpense | null>(null)
   const [confirmDeleteExp, setConfirmDeleteExp] = useState<string | null>(null)
 
@@ -66,6 +69,13 @@ export function ExpenseGroupsScreen() {
     [groupExpenses, selectedId],
   )
   const selectedTotal = selectedExpenses.reduce((s, e) => s + e.amount, 0)
+  const pendingFollowUps = selectedExpenses.filter((e) => e.tag && e.tag !== 'expense' && e.tag_status === 'pending')
+  const splitwiseOwed = pendingFollowUps
+    .filter((e) => e.tag === 'splitwise')
+    .reduce((s, e) => {
+      const split = e.split_count ?? 2
+      return s + Math.round(e.amount * (split - 1) / split)
+    }, 0)
 
   // Fetch group expenses when selecting a group
   useEffect(() => {
@@ -129,6 +139,8 @@ export function ExpenseGroupsScreen() {
     setExpCategory('')
     setExpNote('')
     setExpInclude(false)
+    setExpTag(null)
+    setExpSplitCount('')
     setEditingExpense(null)
     setShowAddExpense(false)
   }
@@ -137,9 +149,10 @@ export function ExpenseGroupsScreen() {
     if (!selectedId) return
     const cents = dollarsToCents(parseFloat(expAmount) || 0)
     if (cents <= 0) return
+    const splitCount = expTag === 'splitwise' && expSplitCount ? parseInt(expSplitCount) || null : null
 
     if (editingExpense) {
-      const u = { amount: cents, category: expCategory || 'other', note: expNote || null, include_in_monthly: expInclude }
+      const u = { amount: cents, category: expCategory || 'other', note: expNote || null, include_in_monthly: expInclude, tag: (expTag as any) || null, tag_status: expTag && expTag !== 'expense' ? 'pending' as const : null, split_count: splitCount }
       updateGroupExpense(editingExpense.id, u)
       try { await updateGExpDb(editingExpense.id, u) } catch {}
     } else {
@@ -151,6 +164,9 @@ export function ExpenseGroupsScreen() {
         note: expNote || null,
         logged_at: new Date().toISOString(),
         include_in_monthly: expInclude,
+        tag: (expTag as any) || null,
+        tag_status: expTag && expTag !== 'expense' ? 'pending' as const : null,
+        split_count: splitCount,
       }
       try {
         addGroupExpense(await insertGroupExpense(row))
@@ -167,6 +183,8 @@ export function ExpenseGroupsScreen() {
     setExpCategory(e.category)
     setExpNote(e.note ?? '')
     setExpInclude(e.include_in_monthly)
+    setExpTag(e.tag ?? null)
+    setExpSplitCount(e.split_count ? String(e.split_count) : '')
     setShowAddExpense(true)
   }
 
@@ -218,8 +236,29 @@ export function ExpenseGroupsScreen() {
         {selectedExpenses.length === 0 && (
           <Paper p="xl" radius="xl" withBorder ta="center">
             <Text size="xl" mb="sm">🧾</Text>
-            <Text fw={600}>No expenses yet</Text>
-            <Text size="sm" c="dimmed">Add expenses to track spending for this group.</Text>
+            <Text fw={600}>{STRINGS.NO_EXPENSES_IN_GROUP}</Text>
+            <Text size="sm" c="dimmed">{STRINGS.NO_EXPENSES_IN_GROUP_DESC}</Text>
+          </Paper>
+        )}
+
+        {pendingFollowUps.length > 0 && (
+          <Paper p="md" radius="lg" withBorder style={{ borderLeft: '3px solid var(--mantine-color-orange-5)' }}>
+            <Text size="xs" fw={700} tt="uppercase" c="orange" mb="xs">{STRINGS.FOLLOW_UP} ({pendingFollowUps.length})</Text>
+            {splitwiseOwed > 0 && <Text size="sm">{STRINGS.SPLITWISE_OWED}: <b>{formatMoneyWhole(splitwiseOwed)}</b></Text>}
+            <Stack gap={4} mt="xs">
+              {pendingFollowUps.map((e) => (
+                <Group key={e.id} gap="sm" justify="space-between">
+                  <Text size="sm">{e.note || getCategoryInfo(e.category).label} — <Badge size="xs" color={e.tag === 'splitwise' ? 'violet' : e.tag === 'refund' ? 'blue' : 'orange'}>{e.tag}</Badge></Text>
+                  <Group gap="xs">
+                    <Text size="sm" fw={600}>{formatMoneyWhole(e.amount)}</Text>
+                    <Button size="xs" variant="light" color="green" radius="xl" onClick={async () => {
+                      updateGroupExpense(e.id, { tag_status: 'settled' })
+                      try { await updateGExpDb(e.id, { tag_status: 'settled' }) } catch {}
+                    }}>{STRINGS.SETTLED}</Button>
+                  </Group>
+                </Group>
+              ))}
+            </Stack>
           </Paper>
         )}
 
@@ -229,7 +268,7 @@ export function ExpenseGroupsScreen() {
             if (confirmDeleteExp === e.id) {
               return (
                 <Group key={e.id} justify="space-between" py="xs" px={4}>
-                  <Text size="sm">Delete this expense?</Text>
+                  <Text size="sm">{STRINGS.DELETE_EXPENSE_CONFIRM}</Text>
                   <Group gap="xs">
                     <Button variant="filled" color="red" size="xs" radius="xl" onClick={() => handleDeleteExpense(e.id)}>Yes</Button>
                     <Button variant="default" size="xs" radius="xl" onClick={() => setConfirmDeleteExp(null)}>No</Button>
@@ -243,7 +282,19 @@ export function ExpenseGroupsScreen() {
                 <Text size="sm" fw={600} truncate style={{ flex: 1 }}>{e.note || cat.label}</Text>
                 <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{formatDateShort(e.logged_at)}</Text>
                 {e.include_in_monthly && <Badge size="xs" variant="light" color="blue">Monthly</Badge>}
-                <Text size="sm" fw={700} style={{ flexShrink: 0 }}>{formatMoneyWhole(e.amount)}</Text>
+                {e.tag && e.tag !== 'expense' && (
+                  <Badge size="xs" variant="light" color={e.tag_status === 'settled' ? 'green' : 'orange'}>
+                    {e.tag}{e.tag_status === 'settled' ? ' ✓' : ''}
+                  </Badge>
+                )}
+                <Text size="sm" fw={700} style={{ flexShrink: 0 }}>
+                  {e.tag === 'splitwise' && e.split_count
+                    ? formatMoneyWhole(Math.round(e.amount / e.split_count))
+                    : formatMoneyWhole(e.amount)}
+                </Text>
+                {e.tag === 'splitwise' && e.split_count && (
+                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>÷{e.split_count}</Text>
+                )}
                 <ActionIcon variant="subtle" size="xs" onClick={() => openEditExpense(e)}><PencilSimple size={12} /></ActionIcon>
                 <ActionIcon variant="subtle" color="red" size="xs" onClick={() => setConfirmDeleteExp(e.id)}><Trash size={12} /></ActionIcon>
               </Group>
@@ -255,13 +306,13 @@ export function ExpenseGroupsScreen() {
         <Modal
           opened={showAddExpense}
           onClose={resetExpenseForm}
-          title={editingExpense ? 'Edit Expense' : 'Add Expense'}
+          title={editingExpense ? STRINGS.EDIT_EXPENSE : STRINGS.ADD}
           radius="xl"
           size="sm"
         >
           <Stack gap="md">
             <TextInput
-              label="Amount"
+              label={STRINGS.FIELD_AMOUNT}
               value={expAmount}
               onChange={(e) => setExpAmount(e.target.value)}
               leftSection={<Text size="sm">$</Text>}
@@ -271,29 +322,53 @@ export function ExpenseGroupsScreen() {
               autoFocus
             />
             <Select
-              label="Category"
+              label={STRINGS.WHERE_IT_WENT}
               value={expCategory || null}
               onChange={(v) => setExpCategory(v ?? '')}
               data={categoryData}
               radius="lg"
-              placeholder="Select category"
+              placeholder={STRINGS.WHERE_IT_WENT}
               clearable
             />
             <TextInput
-              label="Note"
+              label={STRINGS.FIELD_NOTE}
               value={expNote}
               onChange={(e) => setExpNote(e.target.value)}
-              placeholder="What was this for?"
+              placeholder={STRINGS.PH_NOTE}
               radius="lg"
             />
             <Checkbox
-              label="Include in monthly expenses"
+              label={STRINGS.INCLUDE_IN_MONTHLY}
               checked={expInclude}
               onChange={(e) => setExpInclude(e.currentTarget.checked)}
-              description="Count this toward your normal monthly budget"
+              description={STRINGS.INCLUDE_IN_MONTHLY_DESC}
             />
+            <Select
+              label={STRINGS.TAG_LABEL}
+              value={expTag}
+              onChange={(v) => setExpTag(v)}
+              data={[
+                { value: 'expense', label: STRINGS.TAG_EXPENSE },
+                { value: 'splitwise', label: STRINGS.TAG_SPLITWISE },
+                { value: 'refund', label: STRINGS.TAG_REFUND },
+                { value: 'return', label: STRINGS.TAG_RETURN },
+              ]}
+              placeholder="None"
+              clearable
+              radius="lg"
+            />
+            {expTag === 'splitwise' && (
+              <TextInput
+                label={STRINGS.SPLIT_COUNT_LABEL}
+                value={expSplitCount}
+                onChange={(e) => setExpSplitCount(e.target.value)}
+                type="number"
+                placeholder="2"
+                radius="lg"
+              />
+            )}
             <Group justify="flex-end">
-              <Button variant="default" radius="xl" onClick={resetExpenseForm}>Cancel</Button>
+              <Button variant="default" radius="xl" onClick={resetExpenseForm}>{STRINGS.CANCEL}</Button>
               <Button
                 variant="gradient"
                 gradient={{ from: 'teal', to: 'blue' }}
@@ -301,7 +376,7 @@ export function ExpenseGroupsScreen() {
                 onClick={handleSaveExpense}
                 disabled={!expAmount}
               >
-                {editingExpense ? 'Save' : 'Add'}
+                {editingExpense ? STRINGS.SAVE_CHANGES : STRINGS.ADD}
               </Button>
             </Group>
           </Stack>
@@ -314,7 +389,7 @@ export function ExpenseGroupsScreen() {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <Text fw={700} size="lg">Expense Groups</Text>
+        <Text fw={700} size="lg">{STRINGS.EXPENSE_GROUPS}</Text>
         <Button
           variant="light"
           color="teal"
@@ -323,21 +398,21 @@ export function ExpenseGroupsScreen() {
           leftSection={<Plus size={14} />}
           onClick={() => setShowAdd(true)}
         >
-          New Group
+          {STRINGS.NEW_GROUP}
         </Button>
       </Group>
 
       {activeGroups.length === 0 && closedGroups.length === 0 && (
         <Paper p="xl" radius="xl" withBorder ta="center">
           <Text size="xl" mb="sm">📂</Text>
-          <Text fw={600}>No expense groups yet</Text>
-          <Text size="sm" c="dimmed">Create a group to track expenses for a trip, event, project, or anything.</Text>
+          <Text fw={600}>{STRINGS.NO_GROUPS_YET}</Text>
+          <Text size="sm" c="dimmed">{STRINGS.NO_GROUPS_DESC}</Text>
         </Paper>
       )}
 
       {activeGroups.length > 0 && (
         <Stack gap="sm">
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed">Active</Text>
+          <Text size="xs" fw={700} tt="uppercase" c="dimmed">{STRINGS.ACTIVE_GROUPS}</Text>
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
             {activeGroups.map((g) => {
               const total = groupExpenses.filter((e) => e.group_id === g.id).reduce((s, e) => s + e.amount, 0)
@@ -379,7 +454,7 @@ export function ExpenseGroupsScreen() {
 
       {closedGroups.length > 0 && (
         <Stack gap="sm">
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed">Closed</Text>
+          <Text size="xs" fw={700} tt="uppercase" c="dimmed">{STRINGS.CLOSED_GROUPS}</Text>
           {closedGroups.map((g) => {
             const total = groupExpenses.filter((e) => e.group_id === g.id).reduce((s, e) => s + e.amount, 0)
             return (
@@ -393,7 +468,7 @@ export function ExpenseGroupsScreen() {
                     </Box>
                   </Group>
                   <Group gap={4}>
-                    <Button size="xs" variant="subtle" onClick={(e) => { e.stopPropagation(); handleReopenGroup(g.id) }}>Reopen</Button>
+                    <Button size="xs" variant="subtle" onClick={(e) => { e.stopPropagation(); handleReopenGroup(g.id) }}>{STRINGS.REOPEN}</Button>
                     <ActionIcon variant="subtle" size="xs" color="red" onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.id) }}>
                       <Trash size={12} />
                     </ActionIcon>
@@ -406,11 +481,11 @@ export function ExpenseGroupsScreen() {
       )}
 
       {/* Create Group Modal */}
-      <Modal opened={showAdd} onClose={() => { setShowAdd(false); setName(''); setEmoji('') }} title="New Expense Group" radius="xl" size="sm">
+      <Modal opened={showAdd} onClose={() => { setShowAdd(false); setName(''); setEmoji('') }} title={STRINGS.NEW_EXPENSE_GROUP} radius="xl" size="sm">
         <Stack gap="md">
           <Group grow>
             <TextInput
-              label="Emoji"
+              label={STRINGS.GROUP_EMOJI_LABEL}
               value={emoji}
               onChange={(e) => setEmoji(e.target.value)}
               placeholder="🏕️"
@@ -418,7 +493,7 @@ export function ExpenseGroupsScreen() {
               radius="lg"
             />
             <TextInput
-              label="Name"
+              label={STRINGS.GROUP_NAME_LABEL}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. California Road Trip"
@@ -427,18 +502,18 @@ export function ExpenseGroupsScreen() {
             />
           </Group>
           <Group justify="flex-end">
-            <Button variant="default" radius="xl" onClick={() => { setShowAdd(false); setName(''); setEmoji('') }}>Cancel</Button>
-            <Button variant="gradient" gradient={{ from: 'teal', to: 'blue' }} radius="xl" onClick={handleCreateGroup} disabled={!name.trim()}>Create</Button>
+            <Button variant="default" radius="xl" onClick={() => { setShowAdd(false); setName(''); setEmoji('') }}>{STRINGS.CANCEL}</Button>
+            <Button variant="gradient" gradient={{ from: 'teal', to: 'blue' }} radius="xl" onClick={handleCreateGroup} disabled={!name.trim()}>{STRINGS.LOG}</Button>
           </Group>
         </Stack>
       </Modal>
 
       {/* Edit Group Modal */}
-      <Modal opened={!!editGroup} onClose={() => { setEditGroup(null); setName(''); setEmoji('') }} title="Edit Group" radius="xl" size="sm">
+      <Modal opened={!!editGroup} onClose={() => { setEditGroup(null); setName(''); setEmoji('') }} title={STRINGS.EDIT_GROUP} radius="xl" size="sm">
         <Stack gap="md">
           <Group grow>
             <TextInput
-              label="Emoji"
+              label={STRINGS.GROUP_EMOJI_LABEL}
               value={emoji}
               onChange={(e) => setEmoji(e.target.value)}
               placeholder="🏕️"
@@ -446,17 +521,16 @@ export function ExpenseGroupsScreen() {
               radius="lg"
             />
             <TextInput
-              label="Name"
+              label={STRINGS.GROUP_NAME_LABEL}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Group name"
               radius="lg"
               autoFocus
             />
           </Group>
           <Group justify="flex-end">
-            <Button variant="default" radius="xl" onClick={() => { setEditGroup(null); setName(''); setEmoji('') }}>Cancel</Button>
-            <Button variant="gradient" gradient={{ from: 'teal', to: 'blue' }} radius="xl" onClick={handleUpdateGroup} disabled={!name.trim()}>Save</Button>
+            <Button variant="default" radius="xl" onClick={() => { setEditGroup(null); setName(''); setEmoji('') }}>{STRINGS.CANCEL}</Button>
+            <Button variant="gradient" gradient={{ from: 'teal', to: 'blue' }} radius="xl" onClick={handleUpdateGroup} disabled={!name.trim()}>{STRINGS.SAVE_CHANGES}</Button>
           </Group>
         </Stack>
       </Modal>

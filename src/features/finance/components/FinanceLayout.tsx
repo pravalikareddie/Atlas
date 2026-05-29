@@ -18,7 +18,7 @@ const TABS = [
   { to: ROUTES.FINANCE, label: 'Overview', end: true },
   { to: ROUTES.FINANCE_EXPENSES, label: STRINGS.EXPENSES },
   { to: ROUTES.FINANCE_GROUPS, label: 'Groups' },
-  { to: ROUTES.FINANCE_ACCOUNTS, label: 'Accounts' },
+  { to: ROUTES.FINANCE_ACCOUNTS, label: 'Follow Ups' },
   { to: ROUTES.FINANCE_BUDGETS, label: STRINGS.BUDGETS },
   { to: ROUTES.FINANCE_TAX, label: 'Tax' },
 ]
