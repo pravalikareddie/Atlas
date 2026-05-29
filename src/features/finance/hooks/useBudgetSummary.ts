@@ -29,7 +29,12 @@ export function useBudgetSummary() {
 
     const rows: BudgetRow[] = []
 
-    for (const cat of getBudgetCategories()) {
+    // Include all known categories + any found in expenses/budgets
+    const knownCats = new Set(getBudgetCategories())
+    monthExpenses.forEach((e) => knownCats.add(e.category))
+    monthBudgets.forEach((b) => knownCats.add(b.category))
+
+    for (const cat of knownCats) {
       const budget = monthBudgets.find((b) => b.category === cat)
       const budgetAmt = budget?.amount ?? 0
       const spent = (cat === INCOME_CATEGORY ? monthExpenses : spendingExpenses)

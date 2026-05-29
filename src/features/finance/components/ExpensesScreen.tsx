@@ -11,6 +11,7 @@ import {
   Modal,
   Paper,
   RingProgress,
+  Select,
   SimpleGrid,
   Stack,
   Text,
@@ -51,7 +52,7 @@ export function ExpensesScreen() {
   const [editExpense, setEditExpense] = useState<Expense | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [month, setMonth] = useState(currentMonth)
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'highest' | 'lowest' | 'category'>('newest')
 
   const monthExpenses = useMemo(
     () => expenses.filter((e) => e.month === month && e.category !== 'income' && e.category !== 'savings' && e.category !== 'investing'),
@@ -60,11 +61,15 @@ export function ExpensesScreen() {
 
   const filtered = useMemo(() => {
     let list = categoryFilter ? monthExpenses.filter((e) => e.category === categoryFilter) : monthExpenses
-    return [...list].sort((a, b) =>
-      sortOrder === 'newest'
-        ? b.logged_at.localeCompare(a.logged_at)
-        : a.logged_at.localeCompare(b.logged_at),
-    )
+    return [...list].sort((a, b) => {
+      switch (sortOrder) {
+        case 'oldest': return a.logged_at.localeCompare(b.logged_at)
+        case 'highest': return b.amount - a.amount
+        case 'lowest': return a.amount - b.amount
+        case 'category': return a.category.localeCompare(b.category)
+        default: return b.logged_at.localeCompare(a.logged_at)
+      }
+    })
   }, [monthExpenses, categoryFilter, sortOrder])
 
   const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0)
@@ -266,14 +271,20 @@ export function ExpensesScreen() {
 
       {/* Sort & totals */}
       <Group justify="space-between">
-        <Badge
-          variant="outline"
-          color="gray"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setSortOrder((o) => (o === 'newest' ? 'oldest' : 'newest'))}
-        >
-          {sortOrder === 'newest' ? '↓ Newest' : '↑ Oldest'}
-        </Badge>
+        <Select
+          size="xs"
+          radius="lg"
+          w={130}
+          value={sortOrder}
+          onChange={(v) => v && setSortOrder(v as any)}
+          data={[
+            { value: 'newest', label: '↓ Newest' },
+            { value: 'oldest', label: '↑ Oldest' },
+            { value: 'highest', label: '$ High' },
+            { value: 'lowest', label: '$ Low' },
+            { value: 'category', label: '🏷 Category' },
+          ]}
+        />
         {categoryFilter && (
           <Text size="sm" fw={600}>
             {filtered.length} items · {formatMoneyWhole(filteredTotal)}

@@ -65,7 +65,7 @@ export function ExpenseGroupsScreen() {
   const [confirmDeleteExp, setConfirmDeleteExp] = useState<string | null>(null)
 
   // Sort & filter for group detail
-  const [groupSort, setGroupSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest')
+  const [groupSort, setGroupSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest' | 'category'>('newest')
   const [groupCatFilter, setGroupCatFilter] = useState<string | null>(null)
 
   const selected = expenseGroups.find((g) => g.id === selectedId)
@@ -80,6 +80,7 @@ export function ExpenseGroupsScreen() {
         case 'oldest': return a.logged_at.localeCompare(b.logged_at)
         case 'highest': return b.amount - a.amount
         case 'lowest': return a.amount - b.amount
+        case 'category': return a.category.localeCompare(b.category)
         default: return b.logged_at.localeCompare(a.logged_at)
       }
     })
@@ -341,7 +342,7 @@ export function ExpenseGroupsScreen() {
           <Select
             size="xs"
             radius="lg"
-            w={120}
+            w={130}
             value={groupSort}
             onChange={(v) => v && setGroupSort(v as any)}
             data={[
@@ -349,6 +350,7 @@ export function ExpenseGroupsScreen() {
               { value: 'oldest', label: '↑ Oldest' },
               { value: 'highest', label: '$ High' },
               { value: 'lowest', label: '$ Low' },
+              { value: 'category', label: '🏷 Category' },
             ]}
           />
           {groupCategoryBreakdown.length > 1 && (

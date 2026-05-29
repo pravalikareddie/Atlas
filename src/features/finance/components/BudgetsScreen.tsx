@@ -102,12 +102,15 @@ export function BudgetsScreen() {
     forceUpdate((n) => n + 1)
   }
 
+  const [catError, setCatError] = useState<string | null>(null)
+
   function handleRemoveCategory(key: string) {
     const hasExpenses = useFinanceStore.getState().expenses.some((e) => e.category === key)
     if (hasExpenses) {
-      alert(`Cannot delete "${key}" — there are expenses using this category. Reassign them first.`)
+      setCatError(`Cannot delete "${key}" — expenses are using this category.`)
       return
     }
+    setCatError(null)
     removeCategory(key)
     forceUpdate((n) => n + 1)
   }
@@ -371,6 +374,7 @@ export function BudgetsScreen() {
         size="md"
       >
         <Stack gap="md">
+          {catError && <Text size="sm" c="red">{catError}</Text>}
           {CATEGORIES.map((cat) => (
             <Group key={cat.key} justify="space-between">
               {editingCatKey === cat.key ? (
