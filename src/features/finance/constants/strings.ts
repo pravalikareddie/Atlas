@@ -114,7 +114,8 @@ export const STRINGS = {
   EXPENSE_GROUPS: 'Expense Groups',
   NEW_GROUP: 'New Group',
   NO_GROUPS_YET: 'No expense groups yet',
-  NO_GROUPS_DESC: 'Create a group to track expenses for a trip, event, project, or anything.',
+  NO_GROUPS_DESC:
+    'Create a group to track expenses for a trip, event, project, or anything.',
   NO_EXPENSES_IN_GROUP: 'No expenses yet',
   NO_EXPENSES_IN_GROUP_DESC: 'Add expenses to track spending for this group.',
   ACTIVE_GROUPS: 'Active',
@@ -132,7 +133,6 @@ export const STRINGS = {
   TAG_REFUND: '🔄 Refund expected',
   TAG_RETURN: '↩️ Return',
   SPLIT_COUNT_LABEL: 'Split between how many people (including you)',
-  SETTLED: 'settled',
   GROUP_EMOJI_LABEL: 'Emoji',
   GROUP_NAME_LABEL: 'Name',
   EDIT_GROUP: 'Edit Group',

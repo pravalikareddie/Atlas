@@ -91,6 +91,9 @@ export function ExpensesScreen() {
       note: expense.note,
       logged_at: expense.logged_at,
       include_in_monthly: true,
+      tag: null,
+      tag_status: null,
+      split_count: null,
     }
     try {
       addGroupExpense(await insertGroupExpense(row))
