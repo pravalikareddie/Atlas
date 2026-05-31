@@ -33,6 +33,7 @@ import {
   CADENCE_LABEL,
   DATE_FORMAT,
   TYPE_COLOR,
+  SPRINT_TASK_STATUS_OPTIONS,
 } from '../constants/taskConstants'
 import { useTaskActions } from '../hooks/useTaskActions'
 import { useTaskStore } from '../store/taskStore'
@@ -126,7 +127,7 @@ export function TaskDetailSheet({ task: taskProp, onClose }: DetailProps) {
       cadence_days: null,
       cadence_date: null,
       cadence_interval: null,
-      push_count: 0, sprint_id: null, blocked: false, blocked_note: null,
+      push_count: 0, sprint_id: null, blocked: false, blocked_note: null, sprint_status: null,
     })
     setNewSub(getSubtaskInitial(task))
   }
@@ -307,6 +308,16 @@ export function TaskDetailSheet({ task: taskProp, onClose }: DetailProps) {
                   radius="lg"
                 />
               </Group>
+
+              {task.sprint_id && (
+                <Select
+                  label="Sprint Status"
+                  value={task.sprint_status}
+                  onChange={(v) => saveField('sprint_status', v)}
+                  data={SPRINT_TASK_STATUS_OPTIONS}
+                  radius="lg"
+                />
+              )}
 
               <Group grow>
                 <TextInput

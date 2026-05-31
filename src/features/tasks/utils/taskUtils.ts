@@ -1,5 +1,16 @@
 import { addDays, addMonths, setDate, isAfter, getDay, format } from 'date-fns'
 import { Task, CadenceType } from '../types/task.types'
+import { TASK_STATUS, SPRINT_TASK_STATUS } from '../constants/taskConstants'
+
+/** Returns true if the task is considered "active" (not completed) */
+export function isTaskActive(t: Task): boolean {
+  return t.status !== TASK_STATUS.DONE && t.sprint_status !== SPRINT_TASK_STATUS.DONE
+}
+
+/** Returns true if the task is considered "done" */
+export function isTaskDone(t: Task): boolean {
+  return t.status === TASK_STATUS.DONE || t.sprint_status === SPRINT_TASK_STATUS.DONE
+}
 
 export function getNextDueDate(task: Task): string | null {
   if (!task.cadence || task.cadence === 'none' || !task.due_date) return null

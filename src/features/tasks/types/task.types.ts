@@ -11,6 +11,7 @@ export type TaskType =
   | 'goal_task'
 
 export type TaskStatus = 'todo' | 'done' | 'skipped'
+export type SprintTaskStatus = 'not_started' | 'in_cr' | 'merged' | 'deployed' | 'done' | 'blocked'
 export type TaskPriority = 'high' | 'medium' | 'low'
 export type CadenceType =
   | 'daily'
@@ -30,6 +31,7 @@ export interface Task {
   priority: TaskPriority | null
   is_must: boolean
   status: TaskStatus
+  sprint_status: SprintTaskStatus | null
   due_date: string | null
   do_today: boolean
   completed_at: string | null

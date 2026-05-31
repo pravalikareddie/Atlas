@@ -158,7 +158,7 @@ async function executeAction(tc: ToolCall) {
   try {
     switch (tc.name) {
       case 'add_task': {
-        const row = { user_id: USER_ID, title: i.title as string, type: (i.task_type as string) || 'personal', priority: null, is_must: !!i.is_must, status: 'todo' as const, due_date: (i.due_date as string) || null, do_today: false, completed_at: null, goal_id: null, milestone_id: null, project_id: null, roadmap_item_id: null, calendar_event_id: null, parent_task_id: null, ticket_id: null, order_index: 0, cadence: null, cadence_days: null, cadence_date: null, cadence_interval: null, push_count: 0, is_learning: false, notes: null }
+        const row = { user_id: USER_ID, title: i.title as string, type: (i.task_type as string) || 'personal', priority: null, is_must: !!i.is_must, status: 'todo' as const, due_date: (i.due_date as string) || null, do_today: false, completed_at: null, goal_id: null, milestone_id: null, project_id: null, roadmap_item_id: null, calendar_event_id: null, parent_task_id: null, ticket_id: null, order_index: 0, cadence: null, cadence_days: null, cadence_date: null, cadence_interval: null, push_count: 0, sprint_id: null, blocked: false, blocked_note: null, is_learning: false, notes: null }
         const t = await insertTask(row).catch(() => ({ ...row, id: uid(), created_at: now(), event_time: null, event_duration: null }))
         useTaskStore.getState().addTask(t)
         break

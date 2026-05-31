@@ -40,7 +40,7 @@ import {
   USER_ID,
 } from '../../tasks/constants/taskConstants'
 import { STRINGS } from '../../tasks/constants/strings'
-import { sortTasks } from '../../tasks/utils/taskUtils'
+import { sortTasks, isTaskActive, isTaskDone } from '../../tasks/utils/taskUtils'
 import { TaskRow } from '../../tasks/components/TaskRow'
 import { SortableList } from '../../../shared/components/SortableList'
 import { SprintTaskRow } from '../../tasks/components/SprintTaskRow'
@@ -130,7 +130,7 @@ export function TodayScreen() {
       sortTasks(
         topLevel.filter(
           (t) =>
-            t.status === TASK_STATUS.TODO &&
+            isTaskActive(t) &&
             t.due_date &&
             isBefore(parseISO(t.due_date), startOfDay(parseISO(todayStr))),
         ),
@@ -152,8 +152,8 @@ export function TodayScreen() {
         (t) =>
           t.parent_task_id &&
           ((t.due_date && isToday(parseISO(t.due_date))) || t.do_today) &&
-          (t.status === TASK_STATUS.TODO ||
-            (t.status === TASK_STATUS.DONE &&
+          (isTaskActive(t) ||
+            (isTaskDone(t) &&
               !!t.completed_at &&
               isToday(parseISO(t.completed_at)))),
       ),
@@ -171,11 +171,11 @@ export function TodayScreen() {
         (t) =>
           (VISIBLE_TYPES.has(t.type) || t.is_learning) &&
           !overdueIds.has(t.id) &&
-          ((t.status === TASK_STATUS.TODO &&
+          ((isTaskActive(t) &&
             ((t.due_date && isToday(parseISO(t.due_date))) ||
               t.do_today ||
               parentIdsViaSub.has(t.id))) ||
-            (t.status === TASK_STATUS.DONE &&
+            (isTaskDone(t) &&
               !!t.completed_at &&
               isToday(parseISO(t.completed_at)))),
       ),
@@ -183,12 +183,12 @@ export function TodayScreen() {
   )
 
   function toggleTask(t: Task) {
-    t.status === TASK_STATUS.DONE
+    isTaskDone(t)
       ? update(t.id, { status: TASK_STATUS.TODO, completed_at: null })
       : markDone(t)
   }
   function toggleSubtask(st: Task) {
-    st.status === TASK_STATUS.DONE
+    isTaskDone(st)
       ? update(st.id, { status: TASK_STATUS.TODO, completed_at: null })
       : markDone(st)
   }
@@ -206,7 +206,7 @@ export function TodayScreen() {
           (t) =>
             !t.is_learning &&
             WORK_TYPES.includes(t.type) &&
-            t.status === TASK_STATUS.TODO &&
+            isTaskActive(t) &&
             (t.do_today ||
               (t.due_date && isToday(parseISO(t.due_date))) ||
               parentIdsViaSub.has(t.id)),
@@ -256,14 +256,14 @@ export function TodayScreen() {
   const completedToday = useMemo(() => {
     const topLevelDone = todayTasks.filter(
       (t) =>
-        t.status === TASK_STATUS.DONE &&
+        isTaskDone(t) &&
         (!parentIdsViaSub.has(t.id) ||
           (t.due_date && isToday(parseISO(t.due_date))) ||
           (t.do_today && (!t.due_date || isToday(parseISO(t.due_date))))),
     ).length
     return (
       topLevelDone +
-      todaySubtasks.filter((t) => t.status === TASK_STATUS.DONE).length
+      todaySubtasks.filter((t) => isTaskDone(t)).length
     )
   }, [todayTasks, todaySubtasks, parentIdsViaSub])
 
@@ -405,7 +405,7 @@ export function TodayScreen() {
               (t) => t.sprint_id === activeSprint.id && !t.parent_task_id,
             )
             const sDone = sprintTasks.filter(
-              (t) => t.status === TASK_STATUS.DONE,
+              (t) => isTaskDone(t),
             ).length
             const sTotal = sprintTasks.length
             const sPct = sTotal > 0 ? Math.round((sDone / sTotal) * 100) : 0
@@ -515,7 +515,7 @@ export function TodayScreen() {
               {(() => {
                 const stale = tasks.filter(
                   (t) =>
-                    t.status === TASK_STATUS.TODO &&
+                    isTaskActive(t) &&
                     !t.parent_task_id &&
                     t.created_at &&
                     Date.now() - new Date(t.created_at).getTime() >

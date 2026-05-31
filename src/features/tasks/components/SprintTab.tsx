@@ -4,12 +4,12 @@ import { Plus, Trash, Check } from '@phosphor-icons/react'
 import { useTaskStore } from '../store/taskStore'
 import { insertSprint, deleteSprint as deleteSprintSvc, updateTask, insertTask, deleteTask as deleteTaskSvc } from '../services/taskService'
 import { format, differenceInDays, parseISO, isWithinInterval } from 'date-fns'
-import { TASK_STATUS, USER_ID } from '../constants/taskConstants'
+import { USER_ID, SPRINT_TASK_STATUS, SPRINT_TASK_STATUS_OPTIONS, SPRINT_TASK_STATUS_COLOR, SPRINT_TASK_STATUS_LABEL } from '../constants/taskConstants'
 import { STRINGS } from '../constants/strings'
 import { SortableList } from '../../../shared/components/SortableList'
 import { persistOrder } from '../../../shared/utils/persistOrder'
 import { updateTask as updateTaskSvc } from '../services/taskService'
-import { Task } from '../types/task.types'
+import { Task, SprintTaskStatus } from '../types/task.types'
 
 export function SprintTab() {
   const sprints = useTaskStore((s) => s.sprints)
@@ -43,7 +43,7 @@ export function SprintTab() {
 
   async function addTaskToSprint() {
     if (!newTaskTitle.trim() || !selectedSprint) return
-    const row = { user_id: USER_ID, title: newTaskTitle.trim(), type: 'sprint' as const, priority: null, is_must: false, status: 'todo' as const, due_date: null, do_today: false, completed_at: null, goal_id: null, milestone_id: null, project_id: null, roadmap_item_id: null, calendar_event_id: null, parent_task_id: null, ticket_id: null, order_index: sprintTasks.length, cadence: null, cadence_days: null, cadence_date: null, cadence_interval: null, push_count: 0, sprint_id: selectedSprint, blocked: false, blocked_note: null, is_learning: false, notes: null }
+    const row = { user_id: USER_ID, title: newTaskTitle.trim(), type: 'sprint' as const, priority: null, is_must: false, status: 'todo' as const, sprint_status: 'not_started' as const, due_date: null, do_today: false, completed_at: null, goal_id: null, milestone_id: null, project_id: null, roadmap_item_id: null, calendar_event_id: null, parent_task_id: null, ticket_id: null, order_index: sprintTasks.length, cadence: null, cadence_days: null, cadence_date: null, cadence_interval: null, push_count: 0, sprint_id: selectedSprint, blocked: false, blocked_note: null, is_learning: false, notes: null }
     try {
       const t = await insertTask(row)
       useTaskStore.getState().addTask(t)
@@ -65,10 +65,10 @@ export function SprintTab() {
   }
 
   async function toggleDone(t: Task) {
-    const done = t.status === TASK_STATUS.DONE
+    const done = t.sprint_status === SPRINT_TASK_STATUS.DONE
     const updates = done
-      ? { status: 'todo' as const, completed_at: null }
-      : { status: 'done' as const, completed_at: new Date().toISOString() }
+      ? { sprint_status: SPRINT_TASK_STATUS.NOT_STARTED, completed_at: null }
+      : { sprint_status: SPRINT_TASK_STATUS.DONE, completed_at: new Date().toISOString() }
     updateTaskStore(t.id, updates)
     await updateTask(t.id, updates).catch(() => {})
   }
@@ -80,8 +80,8 @@ export function SprintTab() {
 
   const selected = sprints.find((s) => s.id === selectedSprint)
   const sprintTasks = selected ? tasks.filter((t) => t.sprint_id === selected.id && !t.parent_task_id).sort((a, b) => a.order_index - b.order_index) : []
-  const doneTasks = sprintTasks.filter((t) => t.status === TASK_STATUS.DONE)
-  const todoTasks = sprintTasks.filter((t) => t.status === TASK_STATUS.TODO)
+  const doneTasks = sprintTasks.filter((t) => t.sprint_status === SPRINT_TASK_STATUS.DONE)
+  const todoTasks = sprintTasks.filter((t) => t.sprint_status !== SPRINT_TASK_STATUS.DONE)
   const progress = sprintTasks.length > 0 ? Math.round((doneTasks.length / sprintTasks.length) * 100) : 0
 
   return (
@@ -101,7 +101,7 @@ export function SprintTab() {
       <SimpleGrid cols={3} spacing="sm">
         {sprints.map((s) => {
           const sTaskCount = tasks.filter((t) => t.sprint_id === s.id).length
-          const sDoneCount = tasks.filter((t) => t.sprint_id === s.id && t.status === TASK_STATUS.DONE).length
+          const sDoneCount = tasks.filter((t) => t.sprint_id === s.id && t.sprint_status === SPRINT_TASK_STATUS.DONE).length
           const isCurrent = (() => { try { return isWithinInterval(today, { start: parseISO(s.start_date), end: parseISO(s.end_date) }) } catch { return false } })()
           const daysLeft = Math.max(0, differenceInDays(parseISO(s.end_date), today))
           const isSelected = selectedSprint === s.id
@@ -158,12 +158,24 @@ export function SprintTab() {
                           <Text size="sm" fw={500}>{t.title}</Text>
                           <Group gap={4} mt={2}>
                             {t.priority && <Badge size="xs" variant="light" color={t.priority === 'high' ? 'red' : 'gray'}>{t.priority}</Badge>}
+                            {t.sprint_status !== SPRINT_TASK_STATUS.NOT_STARTED && t.sprint_status !== SPRINT_TASK_STATUS.DONE && <Badge size="xs" variant="light" color={SPRINT_TASK_STATUS_COLOR[t.sprint_status ?? ''] ?? 'gray'}>{SPRINT_TASK_STATUS_LABEL[t.sprint_status ?? '']}</Badge>}
                             {t.blocked && <Badge size="xs" variant="light" color="yellow">⏳ {t.blocked_note || 'Blocked'}</Badge>}
                             {t.due_date && <Text size="xs" c="dimmed">{t.due_date}</Text>}
                           </Group>
                         </Box>
                       </Group>
                       <Group gap="xs" wrap="nowrap">
+                        <Select
+                          size="xs"
+                          w={110}
+                          radius="lg"
+                          placeholder="Status"
+                          data={SPRINT_TASK_STATUS_OPTIONS}
+                          value={t.sprint_status}
+                          onChange={(v) => v && (() => { updateTaskStore(t.id, { sprint_status: v as SprintTaskStatus }); updateTask(t.id, { sprint_status: v as SprintTaskStatus }).catch(() => {}) })()}
+                          clearable={false}
+                          comboboxProps={{ withinPortal: true }}
+                        />
                         <Select
                           size="xs"
                           w={120}

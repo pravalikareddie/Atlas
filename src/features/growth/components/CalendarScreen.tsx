@@ -493,7 +493,7 @@ export function CalendarScreen() {
       cadence_days: null,
       cadence_date: null,
       cadence_interval: null,
-      push_count: 0, sprint_id: null, blocked: false, blocked_note: null,
+      push_count: 0, sprint_id: null, blocked: false, blocked_note: null, sprint_status: null,
       is_learning: true,
     })
     closeAddModal()

@@ -1020,7 +1020,7 @@ export function ExploreScreen() {
                         parent_task_id: null, ticket_id: null, order_index: 0,
                         cadence: null, cadence_days: null, cadence_date: null,
                         cadence_interval: null, push_count: 0, sprint_id: null,
-                        blocked: false, blocked_note: null, is_learning: false,
+                        blocked: false, blocked_note: null, is_learning: false, sprint_status: null,
                       })
                       completeTodo(t.id)
                     }}>

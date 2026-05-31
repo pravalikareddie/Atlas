@@ -127,6 +127,43 @@ export const TASK_STATUS = {
   DONE: 'done',
 } as const
 
+// SPRINT_TASK_STATUS — used as the primary status for sprint tasks
+export const SPRINT_TASK_STATUS = {
+  NOT_STARTED: 'not_started',
+  IN_CR: 'in_cr',
+  MERGED: 'merged',
+  DEPLOYED: 'deployed',
+  DONE: 'done',
+  BLOCKED: 'blocked',
+} as const
+
+export const SPRINT_TASK_STATUS_LABEL: Record<string, string> = {
+  [SPRINT_TASK_STATUS.NOT_STARTED]: 'Not Started',
+  [SPRINT_TASK_STATUS.IN_CR]: 'In CR',
+  [SPRINT_TASK_STATUS.MERGED]: 'Merged',
+  [SPRINT_TASK_STATUS.DEPLOYED]: 'Deployed',
+  [SPRINT_TASK_STATUS.DONE]: 'Done',
+  [SPRINT_TASK_STATUS.BLOCKED]: 'Blocked',
+}
+
+export const SPRINT_TASK_STATUS_COLOR: Record<string, string> = {
+  [SPRINT_TASK_STATUS.NOT_STARTED]: 'gray',
+  [SPRINT_TASK_STATUS.IN_CR]: 'blue',
+  [SPRINT_TASK_STATUS.MERGED]: 'violet',
+  [SPRINT_TASK_STATUS.DEPLOYED]: 'teal',
+  [SPRINT_TASK_STATUS.DONE]: 'green',
+  [SPRINT_TASK_STATUS.BLOCKED]: 'red',
+}
+
+export const SPRINT_TASK_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: SPRINT_TASK_STATUS.NOT_STARTED, label: 'Not Started' },
+  { value: SPRINT_TASK_STATUS.IN_CR, label: 'In CR' },
+  { value: SPRINT_TASK_STATUS.MERGED, label: 'Merged' },
+  { value: SPRINT_TASK_STATUS.DEPLOYED, label: 'Deployed' },
+  { value: SPRINT_TASK_STATUS.DONE, label: 'Done' },
+  { value: SPRINT_TASK_STATUS.BLOCKED, label: 'Blocked' },
+]
+
 // PRIORITY
 export const PRIORITY = {
   HIGH: 'high',

@@ -64,12 +64,6 @@ export const RESET_AI_FALLBACK = [
 export const AUDIT_MAX_GOALS = 4
 export const AUDIT_MAX_WINS = 5
 
-// ─── AI cache ─────────────────────────────────────────────────────────────────
-
-export const AI_CACHE_KEY = 'atlas_ai_today_summary'
-export const AI_CACHE_TS_KEY = 'atlas_ai_today_summary_ts'
-export const AI_CACHE_TTL_MS = 30 * 60 * 1000
-
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 export const TABS: { value: TodayTab; label: string }[] = [

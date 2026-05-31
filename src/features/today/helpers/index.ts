@@ -1,6 +1,5 @@
 import { format } from 'date-fns'
 import { STRINGS } from '../../tasks/constants/strings'
-import { AI_CACHE_KEY, AI_CACHE_TS_KEY, AI_CACHE_TTL_MS } from '../constants'
 
 export function getGreeting() {
   const h = new Date().getHours()
@@ -19,20 +18,4 @@ export function getWeekNumber(d: Date): number {
 export function getWeekInfo(): string {
   const d = new Date()
   return `${format(d, 'EEE, MMM d')} · Wk ${getWeekNumber(d)}`
-}
-
-export function getCachedSummary(): string | null {
-  try {
-    const text = sessionStorage.getItem(AI_CACHE_KEY)
-    const ts = sessionStorage.getItem(AI_CACHE_TS_KEY)
-    if (text && ts && Date.now() - parseInt(ts) < AI_CACHE_TTL_MS) return text
-  } catch {}
-  return null
-}
-
-export function setCachedSummary(text: string) {
-  try {
-    sessionStorage.setItem(AI_CACHE_KEY, text)
-    sessionStorage.setItem(AI_CACHE_TS_KEY, String(Date.now()))
-  } catch {}
 }

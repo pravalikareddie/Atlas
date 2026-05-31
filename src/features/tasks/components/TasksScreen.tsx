@@ -39,8 +39,10 @@ import {
   DATE_FORMAT,
   TASK_TYPE,
   PRIORITY,
+  WORK_TYPES,
+  PERSONAL_TYPES,
 } from '../constants/taskConstants'
-import { sortTasks } from '../utils/taskUtils'
+import { sortTasks, isTaskActive, isTaskDone } from '../utils/taskUtils'
 import { TaskListRow } from './TaskListRow'
 import { CalendarView } from './CalendarView'
 import { QuickAddModal } from './QuickAddModal'
@@ -56,6 +58,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 type GroupBy = 'due_date' | 'type' | 'priority'
+type TaskView = 'all' | 'work' | 'personal'
 
 const GROUP_BY_OPTIONS = [
   { value: 'due_date', label: 'Date' },
@@ -89,6 +92,7 @@ export function TasksScreen() {
   const { markDone, remove, bulkDone, bulkRemove, update } = useTaskActions()
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [taskView, setTaskView] = useState<TaskView>('all')
   const [groupBy, setGroupBy] = useState<GroupBy>('due_date')
   const [typeFilter, setTypeFilter] = useState<TaskType | null>(null)
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
@@ -109,6 +113,8 @@ export function TasksScreen() {
 
   const filtered = useMemo(() => {
     let list = topLevel
+    if (taskView === 'work') list = list.filter((t) => WORK_TYPES.includes(t.type))
+    else if (taskView === 'personal') list = list.filter((t) => PERSONAL_TYPES.includes(t.type))
     if (typeFilter) list = list.filter((t) => t.type === typeFilter)
     if (priorityFilter === 'must') list = list.filter((t) => t.is_must)
     else if (priorityFilter)
@@ -118,14 +124,14 @@ export function TasksScreen() {
       list = list.filter((t) => t.title.toLowerCase().includes(q))
     }
     return list
-  }, [topLevel, typeFilter, priorityFilter, search])
+  }, [topLevel, taskView, typeFilter, priorityFilter, search])
 
   const todoTasks = useMemo(
-    () => filtered.filter((t) => t.status === TASK_STATUS.TODO),
+    () => filtered.filter((t) => isTaskActive(t)),
     [filtered],
   )
   const doneTasks = useMemo(
-    () => filtered.filter((t) => t.status === TASK_STATUS.DONE),
+    () => filtered.filter((t) => isTaskDone(t)),
     [filtered],
   )
 
@@ -270,6 +276,22 @@ export function TasksScreen() {
           />
         </Collapse>
       </Box>
+
+      {/* Work / Personal toggle */}
+      <Group gap="xs" px="md">
+        {(['all', 'work', 'personal'] as TaskView[]).map((v) => (
+          <Button
+            key={v}
+            variant={taskView === v ? 'filled' : 'light'}
+            color={v === 'work' ? 'violet' : v === 'personal' ? 'teal' : 'gray'}
+            size="xs"
+            radius="xl"
+            onClick={() => setTaskView(v)}
+          >
+            {v === 'all' ? STRINGS.ALL_TASKS : v === 'work' ? `💼 ${STRINGS.WORK}` : `🏠 ${STRINGS.PERSONAL}`}
+          </Button>
+        ))}
+      </Group>
 
       {/* Filters + Group by */}
       <Paper p="md" radius="xl" withBorder bg="var(--mantine-color-body)">

@@ -25,6 +25,9 @@ import {
   PRIORITY,
   PRIORITY_LABEL,
   TYPE_COLOR,
+  SPRINT_TASK_STATUS,
+  SPRINT_TASK_STATUS_LABEL,
+  SPRINT_TASK_STATUS_COLOR,
 } from '../constants/taskConstants'
 import { RADIUS_PILL } from '../../../shared/constants/styles'
 
@@ -114,6 +117,12 @@ export function TaskListRow({
 
         <Group gap="xs" wrap="nowrap" onClick={(e) => e.stopPropagation()}>
           <TypeBadge type={task.type} />
+
+          {task.sprint_id && task.sprint_status !== SPRINT_TASK_STATUS.NOT_STARTED && task.sprint_status !== SPRINT_TASK_STATUS.DONE && (
+            <Badge size="xs" variant="light" color={SPRINT_TASK_STATUS_COLOR[task.sprint_status ?? ''] ?? 'gray'}>
+              {SPRINT_TASK_STATUS_LABEL[task.sprint_status ?? ''] ?? task.sprint_status}
+            </Badge>
+          )}
 
           {task.cadence && task.cadence !== CADENCE.NONE && (
             <Text size="xs" title={STRINGS.RECURRING}>

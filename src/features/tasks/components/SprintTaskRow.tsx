@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { Task, Sprint } from '../types/task.types'
-import { TASK_STATUS, TYPE_COLOR } from '../constants/taskConstants'
+import { TASK_STATUS, TYPE_COLOR, SPRINT_TASK_STATUS, SPRINT_TASK_STATUS_LABEL, SPRINT_TASK_STATUS_COLOR } from '../constants/taskConstants'
 import { STRINGS } from '../constants/strings'
 import {
   Lock,
@@ -54,9 +54,9 @@ export function SprintTaskRow({
   onSubtaskUndo,
 }: Props) {
   const [open, setOpen] = useState(false)
-  const isDone = task.status === TASK_STATUS.DONE
+  const isDone = task.sprint_status === SPRINT_TASK_STATUS.DONE
   const hasSubs = subtasks.length > 0
-  const doneCount = subtasks.filter((s) => s.status === TASK_STATUS.DONE).length
+  const doneCount = subtasks.filter((s) => s.sprint_status === SPRINT_TASK_STATUS.DONE).length
 
   return (
     <Stack gap={0}>
@@ -117,6 +117,11 @@ export function SprintTaskRow({
               {sprint && (
                 <Badge size="xs" variant="light" color="blue">
                   {sprint.name}
+                </Badge>
+              )}
+              {task.sprint_id && task.sprint_status !== SPRINT_TASK_STATUS.NOT_STARTED && task.sprint_status !== SPRINT_TASK_STATUS.DONE && (
+                <Badge size="xs" variant="light" color={SPRINT_TASK_STATUS_COLOR[task.sprint_status ?? ''] ?? 'gray'}>
+                  {SPRINT_TASK_STATUS_LABEL[task.sprint_status ?? ''] ?? task.sprint_status}
                 </Badge>
               )}
               {task.priority && (
